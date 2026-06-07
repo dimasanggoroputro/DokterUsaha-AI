@@ -12,6 +12,7 @@ import {
   ArrowRight,
   HeartPulse,
   Activity,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { HealthScoreRing } from "@/components/diagnosis/HealthScoreRing";
 import { ActionPlanTimeline } from "@/components/diagnosis/ActionPlanTimeline";
+import { DiagnosisConfidence } from "@/components/diagnosis/DiagnosisConfidence";
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
 
 const getMockDiagnosis = (
@@ -49,7 +51,17 @@ const getMockDiagnosis = (
       urgency: "kritis",
       healthScore: 32,
       healthStatus: "kritis",
+      confidenceScore: 95,
+      dataQuality: "tinggi",
       verdict: `HASIL PEMERIKSAAN UTAMA: Usaha Anda terdiagnosis mengalami 'Dehidrasi Likuiditas' akut. Aliran kas keluar lebih deras dibanding arus kas masuk, diperparah oleh tekanan persaingan pasar yang ketat. Anda harus segera memisahkan uang bisnis dengan uang pribadi, menunda belanja modal non-esensial, serta merumuskan penawaran likuidasi stok lambat demi menyuntikkan kas segar dalam 48 jam ke depan.`,
+      insights: [
+        "Masalah terbesar usaha Anda kemungkinan bukan kurangnya modal, melainkan kebocoran kas harian akibat pencampuran keuangan pribadi.",
+        "Mengurangi variasi produk lambat laku (slow-moving) akan langsung melepaskan kas yang terikat pada stok mati.",
+      ],
+      strengths: [
+        "Memiliki kemauan kuat dari pemilik untuk melakukan perbaikan operasional secara mendasar",
+        "Tujuan akhir bisnis terdefinisi dengan jelas",
+      ],
       causes: [
         "Struktur pengeluaran harian tidak terkontrol dan mencampur keuangan pribadi",
         "Penurunan volume pelanggan harian di bawah titik impas (break-even point)",
@@ -102,7 +114,17 @@ const getMockDiagnosis = (
       urgency: "tinggi",
       healthScore: 58,
       healthStatus: "perlu-perhatian",
+      confidenceScore: 95,
+      dataQuality: "tinggi",
       verdict: `HASIL PEMERIKSAAN UTAMA: Dokter mendeteksi gejala 'Kelesuan Trafik Pembeli'. Hal ini umum terjadi akibat munculnya opsi makanan alternatif yang lebih murah di sekitar Anda. Tenang, pondasi bisnis Anda masih kokoh. Dokter menyarankan aktivasi promo loyalitas kecil, penyempurnaan kebersihan area makan, dan pendaftaran ke ekosistem ojek online untuk membuka pintu penjualan baru.`,
+      insights: [
+        "Sepinya pembeli kemungkinan besar terjadi karena munculnya kompetitor baru dengan harga lebih bersaing di dekat lokasi Anda.",
+        "Pelanggan lama yang jarang kembali menunjukkan adanya penurunan kepuasan layanan atau kejenuhan menu yang belum Anda sadari.",
+      ],
+      strengths: [
+        "Sektor bisnis makanan memiliki permintaan pasar harian yang stabil",
+        "Sudah memiliki pemahaman produk yang baik",
+      ],
       causes: [
         "Munculnya kompetitor kuliner baru yang menawarkan harga lebih murah atau promo gencar",
         "Kurangnya aktivitas promosi digital untuk menjangkau pelanggan baru di luar radius berjalan kaki",
@@ -155,7 +177,17 @@ const getMockDiagnosis = (
     urgency: "sedang",
     healthScore: 72,
     healthStatus: "sehat",
+    confidenceScore: 90,
+    dataQuality: "sedang",
     verdict: `HASIL PEMERIKSAAN UTAMA: Hasil pemeriksaan klinis menunjukkan bisnis dalam keadaan 'Cukup Bugar' namun rawan terhadap kebocoran kas kecil. Dokter menyarankan pendisiplinan pencatatan keuangan harian, pemisahan uang pribadi, dan penataan ulang display toko untuk merangsang pembelian impulsif dari pelanggan yang datang.`,
+    insights: [
+      "Meskipun penjualan Anda terlihat stabil, inefisiensi pada penataan display produk menghambat peluang transaksi impulsif tambahan.",
+      "Pemberdayaan WhatsApp Business dapat melipatgandakan repeat order dari pelanggan lokal tanpa biaya iklan tambahan.",
+    ],
+    strengths: [
+      "Struktur operasional yang fleksibel dan efisien",
+      "Skor kesehatan umum berada dalam kategori Sehat",
+    ],
     causes: [
       "Pencatatan kas keluar-masuk belum rapi sehingga laba bersih harian sulit dihitung pasti",
       "Display barang terlaris kurang menonjol di area pandang pembeli",
@@ -228,19 +260,36 @@ export default function ResultPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Scroll automatically to the top of the page on mount
+    window.scrollTo({
+      top: 0,
+      behavior: "instant",
+    });
+
     // Read from localStorage on mount
-    const saved = localStorage.getItem("dokterusaha_consultation");
-    if (saved) {
+    const savedConsultation = localStorage.getItem("dokterusaha_consultation");
+    const savedResult = localStorage.getItem("dokterusaha_result");
+
+    let parsedConsultation: ConsultationData | null = null;
+    if (savedConsultation) {
       try {
-        const parsed = JSON.parse(saved) as ConsultationData;
-        setConsultation(parsed);
-        setResult(getMockDiagnosis(parsed));
+        parsedConsultation = JSON.parse(savedConsultation) as ConsultationData;
+        setConsultation(parsedConsultation);
       } catch (e) {
         console.error(e);
-        setResult(getMockDiagnosis(null));
+      }
+    }
+
+    if (savedResult) {
+      try {
+        const parsedResult = JSON.parse(savedResult) as DiagnosisResult;
+        setResult(parsedResult);
+      } catch (e) {
+        console.error(e);
+        setResult(getMockDiagnosis(parsedConsultation));
       }
     } else {
-      setResult(getMockDiagnosis(null));
+      setResult(getMockDiagnosis(parsedConsultation));
     }
     setIsLoading(false);
   }, []);
@@ -290,6 +339,12 @@ export default function ResultPage() {
           status={result.healthStatus}
         />
 
+        {/* Diagnosis Confidence Score (AI Quality Indicator) */}
+        <DiagnosisConfidence
+          score={result.confidenceScore}
+          quality={result.dataQuality}
+        />
+
         {/* Dedicated Doctor Verdict Card (Formal Prescriptive styling) */}
         <Card className="border-primary/20 bg-primary/[0.01] relative overflow-hidden">
           {/* Decorative stamp-like border */}
@@ -335,6 +390,67 @@ export default function ResultPage() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Insight DokterUsaha AI Card */}
+        {result.insights && result.insights.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 text-sm font-bold text-indigo-700 dark:text-indigo-400">
+                <Lightbulb className="size-4 text-indigo-500" />
+                <span>Insight DokterUsaha AI</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Temuan penting yang mungkin belum Anda sadari dari kondisi usaha
+                Anda.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              {result.insights.map((insight, index) => (
+                <Card
+                  key={index}
+                  className="border-indigo-500/20 bg-indigo-500/[0.01]"
+                >
+                  <CardContent className="p-3 text-xs leading-relaxed text-muted-foreground">
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-400 mr-1.5">
+                      Analisis #{index + 1}:
+                    </span>
+                    {insight}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Strengths Card */}
+        {result.strengths && result.strengths.length > 0 && (
+          <Card className="border-emerald-500/20 bg-emerald-500/[0.01]">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="size-4 text-emerald-500" />
+                Kekuatan Usaha Anda
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Aspek positif dan potensi terkuat dari bisnis Anda saat ini
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-2">
+              {result.strengths.map((strength, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-2.5 rounded-lg border border-emerald-500/10 bg-emerald-500/[0.02] p-3 text-xs"
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                    ✓
+                  </span>
+                  <span className="pt-0.5 leading-relaxed text-muted-foreground">
+                    {strength}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Potential Causes Cards */}
         <Card className="border-border/50">

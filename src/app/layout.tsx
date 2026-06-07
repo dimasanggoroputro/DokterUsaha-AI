@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -11,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "DokterUsaha AI — Dokter Bisnis Digital untuk UMKM",
+    default: "DokterUsaha AI — Dokter Bisnis Digital UMKM",
     template: "%s — DokterUsaha AI",
   },
   description:
@@ -29,6 +30,7 @@ export default function RootLayout({
         <Navbar />
         {children}
         <Footer />
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

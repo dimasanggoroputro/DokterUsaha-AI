@@ -14,8 +14,14 @@ import { StepBusinessProblems } from "./StepBusinessProblems";
 import { StepBusinessGoals } from "./StepBusinessGoals";
 import {
   consultationSchema,
+  step1Schema,
+  step2Schema,
   ConsultationFormValues,
 } from "@/lib/consultation-schema";
+
+import { createDiagnosisAction } from "@/actions/createDiagnosis";
+import { toast } from "sonner";
+import { ConsultationData } from "@/types/diagnosis";
 
 const STEP_FIELDS = {
   1: [
@@ -36,7 +42,7 @@ export function DiagnosisWizard() {
 
   const methods = useForm<ConsultationFormValues>({
     resolver: zodResolver(consultationSchema),
-    mode: "onChange",
+    mode: "onBlur",
     defaultValues: {
       businessName: "",
       businessType: "",
@@ -50,33 +56,62 @@ export function DiagnosisWizard() {
     },
   });
 
-  const { handleSubmit, trigger } = methods;
+  const { handleSubmit, trigger, clearErrors, resetField } = methods;
 
-  const nextStep = async () => {
-    // Validate only fields on the current step
-    const fieldsToValidate = STEP_FIELDS[step as keyof typeof STEP_FIELDS];
-    const isValid = await trigger(fieldsToValidate);
+const nextStep = async () => {
+  const fieldsToValidate =
+    STEP_FIELDS[step as keyof typeof STEP_FIELDS];
 
-    if (isValid) {
-      setStep((prev) => Math.min(prev + 1, 3));
-    }
-  };
+  const isValid = await trigger(fieldsToValidate);
 
+  if (isValid) {
+    clearErrors();
+    setStep((prev) => Math.min(prev + 1, 3));
+  }
+};
   const prevStep = () => {
+    clearErrors();
+
     setStep((prev) => Math.max(prev - 1, 1));
   };
-
-  const onSubmit = (data: ConsultationFormValues) => {
+  const onSubmit = async (data: ConsultationFormValues) => {
+    console.log("FORM SUBMITTED");
     setIsSubmitting(true);
+    try {
+      // Convert UI Form structure matching ConsultationData shape
+      const consultation: ConsultationData = {
+        businessName: data.businessName,
+        businessType: data.businessType,
+        businessAge: data.businessAge,
+        employeeCount: data.employeeCount,
+        monthlyRevenue: data.monthlyRevenue,
+        mainProblem: data.mainProblem,
+        currentChallenges: data.currentChallenges,
+        businessGoal: data.businessGoal,
+        expectedOutcome: data.expectedOutcome,
+      };
 
-    // Save to localStorage to simulate state transfer
-    localStorage.setItem("dokterusaha_consultation", JSON.stringify(data));
+      const result = await createDiagnosisAction(consultation);
 
-    // Simulate short analysis delay (feels like doctor is reviewing the chart)
-    setTimeout(() => {
-      setIsSubmitting(false);
+      // Save inputs and final AI result to localStorage
+      localStorage.setItem(
+        "dokterusaha_consultation",
+        JSON.stringify(consultation),
+      );
+      localStorage.setItem("dokterusaha_result", JSON.stringify(result));
+
+      toast.success("Diagnosis selesai diproses oleh Dokter AI!");
       router.push("/result");
-    }, 1500);
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Gagal memproses diagnosis. Silakan periksa kembali koneksi internet Anda.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

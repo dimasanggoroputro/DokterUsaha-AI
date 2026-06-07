@@ -10,7 +10,11 @@ export type DiagnosisResult = {
   urgency: "rendah" | "sedang" | "tinggi" | "kritis"
   healthScore: number // 0-100
   healthStatus: "sehat" | "perlu-perhatian" | "kritis" // Healthy, Warning, Critical
+  confidenceScore: number
+  dataQuality: "tinggi" | "sedang" | "rendah"
   verdict: string // Doctor's Verdict
+  insights: string[]
+  strengths: string[]
   causes: string[]
   recommendations: string[]
   actionPlan: ActionPlanWeek[]
