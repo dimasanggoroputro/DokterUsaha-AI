@@ -13,7 +13,7 @@ export function ActionPlanTimeline({ timeline }: ActionPlanTimelineProps) {
     <Card className="border-border/50">
       <CardHeader className="pb-4">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-success/20 text-success-foreground border border-success-border/10">
             <Calendar className="size-4" />
           </div>
           <div>
@@ -40,7 +40,7 @@ export function ActionPlanTimeline({ timeline }: ActionPlanTimelineProps) {
                 <ul className="mt-3 space-y-2.5">
                   {plan.tasks.map((task, taskIdx) => (
                     <li key={taskIdx} className="flex items-start gap-2.5 text-xs text-muted-foreground leading-relaxed">
-                      <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="size-3.5 text-success-foreground shrink-0 mt-0.5" />
                       <span>{task}</span>
                     </li>
                   ))}

@@ -49,11 +49,13 @@ export function Navbar() {
             return (
               <Link key={link.href} href={link.href}>
                 <Button
-                  variant={isActive ? "secondary" : "ghost"}
+                  variant={isActive ? "default" : "ghost"}
                   size="sm"
                   className={cn(
-                    "gap-1.5 text-muted-foreground",
-                    isActive && "text-foreground font-medium",
+                    "gap-1.5 transition-all duration-200",
+                    isActive
+                      ? "bg-primary text-primary-foreground font-bold shadow-sm border border-primary-border/20"
+                      : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
                   )}
                 >
                   <link.icon className="size-3.5" />
@@ -93,11 +95,13 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Button
-                    variant={isActive ? "secondary" : "ghost"}
+                    variant={isActive ? "default" : "ghost"}
                     size="lg"
                     className={cn(
-                      "w-full justify-start gap-2 text-muted-foreground",
-                      isActive && "text-foreground font-medium",
+                      "w-full justify-start gap-2 transition-all duration-200",
+                      isActive
+                        ? "bg-primary text-primary-foreground font-bold border border-primary-border/20"
+                        : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
                     )}
                   >
                     <link.icon className="size-4" />

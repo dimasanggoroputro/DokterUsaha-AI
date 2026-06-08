@@ -65,14 +65,14 @@ export default function HomePage() {
     <PageContainer className="flex flex-col items-center gap-16 py-10">
       {/* Hero Section */}
       <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
-        <div className="flex items-center gap-1.5 rounded-full border border-primary/10 bg-primary/5 px-4 py-1.5 text-xs font-semibold text-primary">
-          <Sparkles className="size-3 text-primary animate-pulse" />
+        <div className="flex items-center gap-1.5 rounded-full border border-primary bg-primary/15 px-4 py-1.5 text-xs font-semibold text-primary-foreground">
+          <Sparkles className="size-3 text-primary-foreground animate-pulse" />
           Dokter Bisnis Digital Terpercaya
         </div>
 
         <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl text-foreground">
           Jaga Usaha Anda Tetap{" "}
-          <span className="bg-gradient-to-r from-primary to-muted-foreground bg-clip-text text-transparent">
+          <span className="bg-secondary-foreground bg-clip-text text-transparent">
             Sehat & Bugar
           </span>
         </h1>
@@ -127,7 +127,7 @@ export default function HomePage() {
                 {item.step}
               </span>
               <CardHeader className="pb-2">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/5 text-primary">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/20 text-primary-foreground">
                   <item.icon className="size-4.5" />
                 </div>
                 <CardTitle className="text-sm font-bold mt-2">
@@ -147,12 +147,12 @@ export default function HomePage() {
       {/* Dynamic Diagnostic Simulator Callout */}
       <section className="w-full max-w-3xl">
         <Card className="border-primary/20 bg-primary/[0.01] relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 -mt-10 -mr-10 rounded-full bg-primary/[0.02] flex items-center justify-center pointer-events-none select-none">
-            <Stethoscope className="size-16 text-primary/5" />
+          <div className="absolute top-0 right-0 w-32 h-32 -mt-9 -mr-10 rounded-full bg-primary/[0.02] flex items-center justify-center pointer-events-none select-none">
+            <Stethoscope className="size-16 text-muted-foreground/4" />
           </div>
           <CardContent className="flex flex-col md:flex-row items-center gap-6 p-6 sm:p-8">
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary">
-              <Heart className="size-6 text-primary animate-pulse" />
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary-foreground">
+              <Heart className="size-6 text-primary-foreground animate-pulse" />
             </div>
             <div className="flex flex-col gap-1 text-center md:text-left">
               <h3 className="text-base font-bold text-foreground sm:text-lg">
@@ -194,7 +194,7 @@ export default function HomePage() {
                   "{tc.quote}"
                 </p>
                 <div className="flex items-center gap-2">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary-foreground">
                     {tc.name[0]}
                   </div>
                   <div className="flex flex-col">

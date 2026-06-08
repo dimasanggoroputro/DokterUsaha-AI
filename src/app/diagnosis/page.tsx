@@ -16,7 +16,7 @@ export default function DiagnosisPage() {
         {/* Medical Doctor themed header */}
         <div className="flex flex-col gap-2 border-b border-border/40 pb-4 text-center sm:text-left">
           <div className="flex items-center justify-center gap-2 sm:justify-start">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-tertiary">
               <Stethoscope className="size-4" />
             </div>
             <span className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">

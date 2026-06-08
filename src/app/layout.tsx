@@ -17,6 +17,14 @@ export const metadata: Metadata = {
   },
   description:
     "Platform diagnosa bisnis berbasis AI untuk membantu pelaku UMKM mengidentifikasi masalah usaha dan mendapatkan rekomendasi solusi yang dapat diterapkan.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  other: {
+    "dicoding:email": "dimasanggoro806@gmail.com",
+  },
 };
 
 export default function RootLayout({

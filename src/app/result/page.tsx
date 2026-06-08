@@ -37,7 +37,6 @@ const getMockDiagnosis = (
   const businessName = consultation?.businessName || "Bisnis Anda";
   const businessType = consultation?.businessType || "makanan";
 
-  // Custom critical detection logic for dynamic feel
   const isCritical =
     consultation?.mainProblem?.toLowerCase().includes("bangkrut") ||
     consultation?.mainProblem?.toLowerCase().includes("tutup") ||
@@ -170,7 +169,6 @@ const getMockDiagnosis = (
     };
   }
 
-  // Default fallback for retail/services/other
   return {
     id: "diag-default",
     summary: `Bisnis retail/jasa ${businessName} Anda terindikasi mengalami gejala penyusutan margin laba akibat fluktuasi musiman dan pencatatan kas yang belum tertib.`,
@@ -236,19 +234,19 @@ const getMockDiagnosis = (
 const urgencyConfig = {
   rendah: {
     label: "Rendah",
-    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    className: "bg-success/20 text-success-foreground border border-success-border/20 font-semibold",
   },
   sedang: {
     label: "Sedang",
-    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    className: "bg-warning/20 text-warning-foreground border border-warning-border/20 font-semibold",
   },
   tinggi: {
     label: "Tinggi",
-    className: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
+    className: "bg-warning/35 text-warning-foreground border border-warning-border/30 font-bold",
   },
   kritis: {
     label: "Kritis",
-    className: "bg-red-500/10 text-red-700 dark:text-red-400",
+    className: "bg-destructive/20 text-destructive border border-destructive-border/20 font-bold",
   },
 };
 
@@ -257,24 +255,20 @@ export default function ResultPage() {
     null,
   );
   const [result, setResult] = useState<DiagnosisResult | null>(null);
+  const [previousResult, setPreviousResult] = useState<DiagnosisResult | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Scroll automatically to the top of the page on mount
-    window.scrollTo({
-      top: 0,
-      behavior: "instant",
-    });
+    window.scrollTo({ top: 0, behavior: "instant" });
 
-    // Read from localStorage on mount
     const savedConsultation = localStorage.getItem("dokterusaha_consultation");
     const savedResult = localStorage.getItem("dokterusaha_result");
 
-    let parsedConsultation: ConsultationData | null = null;
     if (savedConsultation) {
       try {
-        parsedConsultation = JSON.parse(savedConsultation) as ConsultationData;
-        setConsultation(parsedConsultation);
+        setConsultation(JSON.parse(savedConsultation) as ConsultationData);
       } catch (e) {
         console.error(e);
       }
@@ -282,19 +276,30 @@ export default function ResultPage() {
 
     if (savedResult) {
       try {
-        const parsedResult = JSON.parse(savedResult) as DiagnosisResult;
-        setResult(parsedResult);
+        setResult(JSON.parse(savedResult) as DiagnosisResult);
       } catch (e) {
         console.error(e);
-        setResult(getMockDiagnosis(parsedConsultation));
+        setResult(null);
       }
-    } else {
-      setResult(getMockDiagnosis(parsedConsultation));
     }
+
+    // Batch 3 — Comparison score
+    const historyRaw = localStorage.getItem("dokterusaha_history");
+    if (historyRaw) {
+      try {
+        const history = JSON.parse(historyRaw);
+        if (history.length >= 2) {
+          setPreviousResult(history[1].diagnosisResult);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     setIsLoading(false);
   }, []);
 
-  if (isLoading || !result) {
+  if (isLoading) {
     return (
       <PageContainer maxWidth="sm">
         <div className="flex h-[400px] flex-col items-center justify-center gap-4 text-center">
@@ -307,76 +312,124 @@ export default function ResultPage() {
     );
   }
 
+  if (!result) {
+    return (
+      <PageContainer maxWidth="sm">
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+            <Stethoscope className="size-12 text-muted-foreground" />
+            <div>
+              <h2 className="text-lg font-bold">Belum Ada Hasil Diagnosis</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Anda belum melakukan pemeriksaan kesehatan bisnis.
+              </p>
+            </div>
+            <Link href="/diagnosis">
+              <Button>Mulai Diagnosis</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </PageContainer>
+    );
+  }
+
   const urgency = urgencyConfig[result.urgency];
 
   return (
     <PageContainer maxWidth="sm">
       <div className="flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex flex-col gap-2 border-b border-border/40 pb-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <HeartPulse className="size-4 text-primary" />
-              Hasil Pemeriksaan Bisnis
+        {/* Premium Title Header Banner */}
+        <div className="relative overflow-hidden rounded-2xl p-6 text-slate-900 shadow-sm border border-[#A5D6FA]/30">
+          <div className="absolute right-0 top-0 -mt-4 -mr-4 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#003647]/70">
+                <HeartPulse className="size-4 text-[#003647]" />
+                Hasil Pemeriksaan Bisnis
+              </div>
+              <Badge className={urgency.className}>
+                Tingkat Urgensi: {urgency.label}
+              </Badge>
             </div>
-            <Badge variant="outline" className={urgency.className}>
-              Tingkat Urgensi: {urgency.label}
-            </Badge>
+            <h1 className="text-2xl font-black tracking-tight text-[#002D54] sm:text-3xl">
+              {consultation?.businessName
+                ? `Resep Solusi: ${consultation.businessName}`
+                : "Hasil Diagnosa Bisnis"}
+            </h1>
+            <p className="text-[11px] sm:text-xs text-[#003647]/70 font-semibold">
+              Tanggal Pemeriksaan: {result.createdAt}
+            </p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {consultation?.businessName
-              ? `Resep Solusi: ${consultation.businessName}`
-              : "Hasil Diagnosa Bisnis"}
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Tanggal Pemeriksaan: {result.createdAt}
-          </p>
         </div>
 
-        {/* Health Score Ring (Top Section) */}
+        {/* Health Score Ring */}
         <HealthScoreRing
           score={result.healthScore}
           status={result.healthStatus}
         />
 
-        {/* Diagnosis Confidence Score (AI Quality Indicator) */}
+        {/* Diagnosis Confidence */}
         <DiagnosisConfidence
           score={result.confidenceScore}
           quality={result.dataQuality}
         />
 
-        {/* Dedicated Doctor Verdict Card (Formal Prescriptive styling) */}
-        <Card className="border-primary/20 bg-primary/[0.01] relative overflow-hidden">
-          {/* Decorative stamp-like border */}
-          <div className="absolute top-0 right-0 w-24 h-24 -mt-6 -mr-6 rounded-full border-4 border-primary/5 flex items-center justify-center rotate-12 pointer-events-none select-none">
-            <span className="text-[10px] font-black text-primary/5 uppercase tracking-widest">
+        {/* Prioritas 48 Jam Kedepan */}
+        <Card className="border-destructive-border/30 bg-destructive/5 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-sm font-bold text-destructive">
+              ⚡ Prioritas 48 Jam Kedepan
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Fokus pada langkah berikut terlebih dahulu sebelum menjalankan
+              seluruh rencana aksi.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {result.recommendations.slice(0, 3).map((item, index) => (
+              <div
+                key={index}
+                className="flex gap-3 rounded-lg border border-destructive-border/20 bg-card p-3 shadow-sm"
+              >
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive text-xs font-bold text-white shadow-sm">
+                  {index + 1}
+                </div>
+                <p className="text-xs leading-relaxed text-foreground">{item}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Verdiksi Klinis */}
+        <Card className="border-primary-border/40 bg-primary/10 relative overflow-hidden shadow-sm">
+          <div className="absolute top-0 right-0 w-24 h-24 -mt-6 -mr-6 rounded-full border-4 border-primary/10 flex items-center justify-center rotate-12 pointer-events-none select-none">
+            <span className="text-[10px] font-black text-primary-foreground/15 uppercase tracking-widest">
               DIAGNOSED
             </span>
           </div>
-
-          <CardHeader className="pb-3 border-b border-dashed border-border">
+          <CardHeader className="pb-3 border-b border-dashed border-primary-border/30">
             <div className="flex items-center gap-2">
-              <Stethoscope className="size-5 text-primary" />
-              <CardTitle className="text-sm font-bold uppercase tracking-wider">
+              <Stethoscope className="size-5 text-primary-foreground" />
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-primary-foreground">
                 Verdiksi Klinis Dokter Bisnis
               </CardTitle>
             </div>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-xs text-primary-foreground/70">
               Catatan diagnosa medis profesional atas keluhan usaha Anda
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 text-sm leading-relaxed font-serif text-foreground/90 italic">
+          <CardContent className="pt-4 text-sm leading-relaxed font-serif text-primary-foreground italic">
             "{result.verdict}"
-            <div className="mt-4 flex items-center justify-between not-italic font-sans text-xs text-muted-foreground/70">
-              <span>Dr. DokterUsaha AI</span>
-              <span className="border-t border-muted-foreground/30 pt-1 px-4 text-center">
+            <div className="mt-4 flex items-center justify-between not-italic font-sans text-xs text-primary-foreground/80">
+              <span className="font-bold">Dr. DokterUsaha AI</span>
+              <span className="border-t border-primary-foreground/30 pt-1 px-4 text-center">
                 Tanda Tangan Digital AI
               </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Summary Card */}
+        {/* Summary */}
         <Card className="border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-bold">
@@ -391,27 +444,26 @@ export default function ResultPage() {
           </CardContent>
         </Card>
 
-        {/* Insight DokterUsaha AI Card */}
+        {/* Insights */}
         {result.insights && result.insights.length > 0 && (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2 text-sm font-bold text-indigo-700 dark:text-indigo-400">
-                <Lightbulb className="size-4 text-indigo-500" />
+              <div className="flex items-center gap-2 text-sm font-bold text-secondary-foreground">
+                <Lightbulb className="size-4 text-secondary-foreground" />
                 <span>Insight DokterUsaha AI</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Temuan penting yang mungkin belum Anda sadari dari kondisi usaha
-                Anda.
+                Temuan penting yang mungkin belum Anda sadari dari kondisi usaha Anda.
               </p>
             </div>
             <div className="grid gap-2">
               {result.insights.map((insight, index) => (
                 <Card
                   key={index}
-                  className="border-indigo-500/20 bg-indigo-500/[0.01]"
+                  className="border-secondary-border/30 bg-secondary/15 shadow-sm"
                 >
-                  <CardContent className="p-3 text-xs leading-relaxed text-muted-foreground">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-400 mr-1.5">
+                  <CardContent className="p-3 text-xs leading-relaxed text-foreground/90">
+                    <span className="font-extrabold text-secondary-foreground mr-1.5">
                       Analisis #{index + 1}:
                     </span>
                     {insight}
@@ -422,12 +474,12 @@ export default function ResultPage() {
           </div>
         )}
 
-        {/* Strengths Card */}
+        {/* Strengths */}
         {result.strengths && result.strengths.length > 0 && (
-          <Card className="border-emerald-500/20 bg-emerald-500/[0.01]">
+          <Card className="border-success-border/30 bg-success/5 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                <CheckCircle2 className="size-4 text-emerald-500" />
+              <CardTitle className="flex items-center gap-2 text-sm font-bold text-success-foreground">
+                <CheckCircle2 className="size-4 text-success-foreground" />
                 Kekuatan Usaha Anda
               </CardTitle>
               <CardDescription className="text-xs">
@@ -438,12 +490,12 @@ export default function ResultPage() {
               {result.strengths.map((strength, index) => (
                 <div
                   key={index}
-                  className="flex items-start gap-2.5 rounded-lg border border-emerald-500/10 bg-emerald-500/[0.02] p-3 text-xs"
+                  className="flex items-start gap-2.5 rounded-lg border border-success-border/10 bg-success/10 p-3 text-xs"
                 >
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success/20 text-[10px] font-bold text-success-foreground">
                     ✓
                   </span>
-                  <span className="pt-0.5 leading-relaxed text-muted-foreground">
+                  <span className="pt-0.5 leading-relaxed text-foreground/80">
                     {strength}
                   </span>
                 </div>
@@ -452,28 +504,27 @@ export default function ResultPage() {
           </Card>
         )}
 
-        {/* Potential Causes Cards */}
-        <Card className="border-border/50">
+        {/* Causes */}
+        <Card className="border-warning-border/30 bg-warning/5 shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-bold">
-              <AlertTriangle className="size-4 text-amber-500" />
+            <CardTitle className="flex items-center gap-2 text-sm font-bold text-warning-foreground">
+              <AlertTriangle className="size-4 text-warning-foreground" />
               Penyebab Potensial (Akar Masalah)
             </CardTitle>
             <CardDescription className="text-xs">
-              Faktor-faktor yang teridentifikasi memperburuk kesehatan usaha
-              Anda
+              Faktor-faktor yang teridentifikasi memperburuk kesehatan usaha Anda
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2">
             {result.causes.map((cause, index) => (
               <div
                 key={index}
-                className="flex items-start gap-2.5 rounded-lg border border-amber-500/10 bg-amber-500/[0.01] p-3 text-xs"
+                className="flex items-start gap-2.5 rounded-lg border border-warning-border/10 bg-warning/10 p-3 text-xs"
               >
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-warning/20 text-[10px] font-bold text-warning-foreground">
                   {index + 1}
                 </span>
-                <span className="pt-0.5 leading-relaxed text-muted-foreground">
+                <span className="pt-0.5 leading-relaxed text-foreground/80">
                   {cause}
                 </span>
               </div>
@@ -481,11 +532,11 @@ export default function ResultPage() {
           </CardContent>
         </Card>
 
-        {/* Recommendations Cards */}
-        <Card className="border-border/50">
+        {/* Recommendations */}
+        <Card className="border-success-border/30 bg-success/5 shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-bold">
-              <Lightbulb className="size-4 text-emerald-500" />
+            <CardTitle className="flex items-center gap-2 text-sm font-bold text-success-foreground">
+              <Lightbulb className="size-4 text-success-foreground" />
               Rekomendasi Terapi (Resep Dokter)
             </CardTitle>
             <CardDescription className="text-xs">
@@ -496,12 +547,12 @@ export default function ResultPage() {
             {result.recommendations.map((rec, index) => (
               <div
                 key={index}
-                className="flex items-start gap-2.5 rounded-lg border border-emerald-500/10 bg-emerald-500/[0.01] p-3 text-xs"
+                className="flex items-start gap-2.5 rounded-lg border border-success-border/10 bg-success/10 p-3 text-xs"
               >
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success/20 text-[10px] font-bold text-success-foreground">
                   {index + 1}
                 </span>
-                <span className="pt-0.5 leading-relaxed text-muted-foreground">
+                <span className="pt-0.5 leading-relaxed text-foreground/80">
                   {rec}
                 </span>
               </div>
@@ -509,12 +560,64 @@ export default function ResultPage() {
           </CardContent>
         </Card>
 
+        {/* Batch 3 — Comparison Score */}
+        {previousResult &&
+          (() => {
+            const scoreDiff = result.healthScore - previousResult.healthScore;
+            return (
+              <Card className="border-primary/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                    <Activity className="size-4 text-primary" />
+                    Perbandingan Pemeriksaan
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Perkembangan skor kesehatan usaha Anda dibanding pemeriksaan
+                    sebelumnya
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-3 gap-4 text-center">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-muted-foreground">
+                      Sebelumnya
+                    </span>
+                    <span className="text-2xl font-bold text-muted-foreground">
+                      {previousResult.healthScore}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 items-center justify-center">
+                    <span
+                      className={`text-2xl font-black ${scoreDiff > 0 ? "text-success-foreground" : scoreDiff < 0 ? "text-destructive" : "text-muted-foreground"}`}
+                    >
+                      {scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      {scoreDiff > 0
+                        ? "↑ Membaik"
+                        : scoreDiff < 0
+                          ? "↓ Menurun"
+                          : "Tidak berubah"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-muted-foreground">
+                      Sekarang
+                    </span>
+                    <span className="text-2xl font-bold text-primary">
+                      {result.healthScore}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
         {/* Timeline Action Plan */}
         <ActionPlanTimeline timeline={result.actionPlan} />
 
         <Separator />
 
-        {/* Navigation Actions */}
+        {/* Navigation */}
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link href="/diagnosis" className="flex-1">
             <Button

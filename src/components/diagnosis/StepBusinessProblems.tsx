@@ -12,8 +12,8 @@ export function StepBusinessProblems() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-lg bg-amber-500/5 p-4 text-sm text-amber-800 dark:text-amber-300 leading-relaxed border border-amber-500/10">
-        🩺 <strong>Bagian Diagnosis Keluhan.</strong> Jelaskan gejala atau masalah utama yang sedang dihadapi bisnis Anda. Ceritakan secara jujur dan apa adanya, sama seperti menjelaskan rasa sakit ke dokter.
+      <div className="rounded-lg bg-warning/10 p-4 text-sm text-warning-foreground leading-relaxed border border-warning/20">
+        <strong>Bagian Diagnosis Keluhan.</strong> Jelaskan gejala atau masalah utama yang sedang dihadapi bisnis Anda. Ceritakan secara jujur dan apa adanya, sama seperti menjelaskan rasa sakit ke dokter.
       </div>
 
       {/* Masalah Utama */}

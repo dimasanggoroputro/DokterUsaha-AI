@@ -17,8 +17,8 @@ export function StepBusinessInfo() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-lg bg-primary/5 p-4 text-sm text-primary/80 leading-relaxed border border-primary/10">
-        👋 <strong>Halo Mitra UMKM!</strong> Mari mulai konsultasi dengan mengisi identitas bisnis Anda. Informasi ini membantu Dokter memahami skala dan konteks operasional usaha Anda secara akurat.
+      <div className="rounded-lg bg-primary/5 p-4 text-sm text-[#003647] leading-relaxed border border-primary/10">
+        <strong>Halo Mitra UMKM!</strong> Mari mulai konsultasi dengan mengisi identitas bisnis Anda. Informasi ini membantu Dokter memahami skala dan konteks operasional usaha Anda secara akurat.
       </div>
 
       {/* Nama Usaha */}

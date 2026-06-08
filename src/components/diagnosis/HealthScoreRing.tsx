@@ -12,23 +12,23 @@ const statusConfig = {
   sehat: {
     label: "Sehat",
     sub: "Kondisi bisnis Anda secara umum stabil dan memiliki pondasi yang baik.",
-    colorClass: "text-emerald-500 dark:text-emerald-400",
-    strokeColor: "#10b981",
-    bgColor: "bg-emerald-500/5 border-emerald-500/10",
+    colorClass: "text-success-foreground font-bold",
+    strokeColor: "#B8F2D0",
+    bgColor: "bg-success/8 border-success-border/20",
   },
   "perlu-perhatian": {
     label: "Perlu Perhatian",
     sub: "Terdapat beberapa gejala penurunan kesehatan finansial atau operasional.",
-    colorClass: "text-amber-500 dark:text-amber-400",
-    strokeColor: "#f59e0b",
-    bgColor: "bg-amber-500/5 border-amber-500/10",
+    colorClass: "text-warning-foreground font-bold",
+    strokeColor: "#FFDDAE",
+    bgColor: "bg-warning/8 border-warning-border/20",
   },
   kritis: {
     label: "Kritis",
     sub: "Bisnis Anda memerlukan penanganan darurat segera untuk mencegah kegagalan usaha.",
-    colorClass: "text-rose-500 dark:text-rose-400",
-    strokeColor: "#f43f5e",
-    bgColor: "bg-rose-500/5 border-rose-500/10",
+    colorClass: "text-destructive font-bold",
+    strokeColor: "#FF6464",
+    bgColor: "bg-destructive/8 border-destructive-border/20",
   },
 }
 

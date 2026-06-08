@@ -22,10 +22,10 @@ export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
     <div className="w-full">
       {/* Mobile-first: simple header info */}
       <div className="mb-4 flex items-center justify-between sm:hidden">
-        <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#003647]">
           Langkah {currentStep} dari {totalSteps}
         </span>
-        <span className="text-sm font-bold text-foreground">
+        <span className="text-sm font-bold text-[#003647]">
           {steps[currentStep - 1].label}
         </span>
       </div>
@@ -50,7 +50,7 @@ export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
                   className={cn(
                     "relative z-10 flex size-9 items-center justify-center rounded-full border bg-background transition-all duration-300",
                     isCompleted && "border-primary bg-primary text-primary-foreground",
-                    isActive && "border-primary ring-4 ring-primary/10 text-primary font-bold scale-110",
+                    isActive && "border-secondary-foreground ring-4 ring-primary/10 text-[#003647] font-bold scale-110",
                     !isCompleted && !isActive && "border-muted text-muted-foreground"
                   )}
                 >

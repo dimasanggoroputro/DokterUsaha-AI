@@ -11,39 +11,39 @@ interface DiagnosisConfidenceProps {
 
 export function DiagnosisConfidence({ score, quality }: DiagnosisConfidenceProps) {
   // Determine color based on score
-  let scoreColorClass = "text-rose-500"
-  let scoreBgClass = "bg-rose-500"
+  let scoreColorClass = "text-destructive"
+  let scoreBgClass = "bg-destructive"
   
   if (score >= 80) {
-    scoreColorClass = "text-emerald-600 dark:text-emerald-400"
-    scoreBgClass = "bg-emerald-500"
+    scoreColorClass = "text-success-foreground"
+    scoreBgClass = "bg-success"
   } else if (score >= 50) {
-    scoreColorClass = "text-amber-600 dark:text-amber-400"
-    scoreBgClass = "bg-amber-500"
+    scoreColorClass = "text-warning-foreground"
+    scoreBgClass = "bg-warning"
   }
 
   // Determine quality badge and text
   const qualityConfigs = {
     tinggi: {
       label: "Tinggi",
-      badgeClass: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/10",
+      badgeVariant: "success" as const,
       description: "Data yang Anda berikan cukup lengkap sehingga hasil analisis memiliki tingkat kepercayaan yang tinggi.",
       icon: ShieldCheck,
-      iconClass: "text-emerald-500",
+      iconClass: "text-success",
     },
     sedang: {
       label: "Sedang",
-      badgeClass: "bg-amber-500/10 text-amber-700 border-amber-500/20 hover:bg-amber-500/10",
+      badgeVariant: "warning" as const,
       description: "Beberapa informasi masih dapat diperjelas agar analisis menjadi lebih akurat.",
       icon: ShieldCheck,
-      iconClass: "text-amber-500",
+      iconClass: "text-warning",
     },
     rendah: {
       label: "Rendah",
-      badgeClass: "bg-rose-500/10 text-rose-700 border-rose-500/20 hover:bg-rose-500/10",
+      badgeVariant: "destructive" as const,
       description: "Informasi yang diberikan masih terlalu umum atau kurang spesifik. Hasil diagnosis sebaiknya digunakan sebagai gambaran awal, bukan kesimpulan final.",
       icon: ShieldAlert,
-      iconClass: "text-rose-500",
+      iconClass: "text-destructive",
     },
   }
 
@@ -79,7 +79,7 @@ export function DiagnosisConfidence({ score, quality }: DiagnosisConfidenceProps
           
           <div className="mt-1 flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground">Kualitas Data Masukan:</span>
-            <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0.5 ${config.badgeClass}`}>
+            <Badge variant={config.badgeVariant} className="text-[10px] font-bold px-2 py-0.5">
               {config.label}
             </Badge>
           </div>
@@ -91,10 +91,10 @@ export function DiagnosisConfidence({ score, quality }: DiagnosisConfidenceProps
         </p>
 
         {/* Info Card Tambahan */}
-        <div className="flex items-start gap-2.5 rounded-lg bg-indigo-500/[0.02] border border-indigo-500/10 p-3">
-          <Info className="size-4 text-indigo-500 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2.5 rounded-lg bg-secondary/15 border border-secondary-border/20 p-3">
+          <Info className="size-4 text-secondary-foreground shrink-0 mt-0.5" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
+            <span className="text-xs font-bold text-secondary-foreground">
               Mengapa tingkat kepercayaan penting?
             </span>
             <p className="text-[11px] text-muted-foreground leading-relaxed">

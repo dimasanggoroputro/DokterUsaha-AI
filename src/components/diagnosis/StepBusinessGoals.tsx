@@ -19,8 +19,8 @@ export function StepBusinessGoals() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-lg bg-emerald-500/5 p-4 text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed border border-emerald-500/10">
-        🎯 <strong>Tujuan & Harapan Usaha.</strong> Agar diagnosa dan
+      <div className="rounded-lg bg-success/10 p-4 text-sm text-success-foreground leading-relaxed border border-success/20">
+        <strong>Tujuan & Harapan Usaha.</strong> Agar diagnosa dan
         rekomendasi Dokter sesuai sasaran, ceritakan apa target jangka
         pendek/panjang Anda dan hasil akhir yang paling Anda inginkan.
       </div>
