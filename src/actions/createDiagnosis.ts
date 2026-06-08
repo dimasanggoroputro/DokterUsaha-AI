@@ -2,6 +2,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
+import { saveDiagnosis } from "@/lib/db-service";
 
 // Initialize GoogleGenAI client
 // Next.js Server Actions execute on the server, so process.env is accessible
@@ -10,6 +11,7 @@ const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 
 export async function createDiagnosisAction(
   consultationData: ConsultationData,
+  userId?: string
 ): Promise<DiagnosisResult> {
   if (!apiKey) {
     throw new Error(
@@ -254,8 +256,7 @@ PANDUAN UTAMA DIAGNOSIS & ANALISIS:
     const aiResult = JSON.parse(responseText);
 
     // Validate structure matches requirements
-    const finalResult: DiagnosisResult = {
-      id: `diag-${Date.now()}`,
+    const finalResult: Omit<DiagnosisResult, "id"> = {
       summary: aiResult.summary || "",
       urgency: aiResult.urgency || "sedang",
       healthScore: Number(aiResult.healthScore) || 50,
@@ -273,12 +274,30 @@ PANDUAN UTAMA DIAGNOSIS & ANALISIS:
       createdAt: new Date().toLocaleDateString("id-ID"),
     };
 
-    return finalResult;
+    // Save to Supabase diagnoses table
+    const dbId = await saveDiagnosis(consultationData, finalResult, userId || "anonymous");
+
+    const finalResultWithId: DiagnosisResult = {
+      ...finalResult,
+      id: dbId,
+    };
+
+    return finalResultWithId;
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Diagnosis Error:", error);
 
     const message =
-      error instanceof Error ? error.message : JSON.stringify(error);
+      error instanceof Error ? error.message : String(error);
+
+    // Supabase save failure
+    if (
+      message.includes("gagal disimpan") ||
+      message.includes("insert") ||
+      message.includes("database") ||
+      message.includes("Supabase")
+    ) {
+      throw new Error("Diagnosis gagal disimpan. Silakan coba kembali.");
+    }
 
     // Gemini overload
     if (
@@ -305,7 +324,7 @@ PANDUAN UTAMA DIAGNOSIS & ANALISIS:
       );
     }
 
-    // Koneksi / server
+    // Koneksi / server / network
     if (
       message.includes("fetch") ||
       message.includes("network") ||
@@ -313,7 +332,7 @@ PANDUAN UTAMA DIAGNOSIS & ANALISIS:
       message.includes("ETIMEDOUT")
     ) {
       throw new Error(
-        "Koneksi ke layanan diagnosis sedang terganggu. Mohon coba kembali beberapa saat lagi.",
+        "Gagal terhubung ke server. Periksa koneksi internet Anda.",
       );
     }
 

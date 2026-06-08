@@ -22,6 +22,8 @@ import {
 import { createDiagnosisAction } from "@/actions/createDiagnosis";
 import { toast } from "sonner";
 import { ConsultationData } from "@/types/diagnosis";
+import { getOrCreateUserId } from "@/lib/utils";
+import { saveDashboardHistory } from "@/lib/local-dashboard-cache";
 
 const STEP_FIELDS = {
   1: [
@@ -85,7 +87,10 @@ export function DiagnosisWizard() {
       );
       return;
     }
+    
     setIsSubmitting(true);
+    const toastId = toast.loading("Menganalisis kesehatan bisnis Anda...");
+
     try {
       // Convert UI Form structure matching ConsultationData shape
       const consultation: ConsultationData = {
@@ -100,58 +105,27 @@ export function DiagnosisWizard() {
         expectedOutcome: data.expectedOutcome,
       };
 
-      const result = await createDiagnosisAction(consultation);
+      const userId = getOrCreateUserId();
+      const result = await createDiagnosisAction(consultation, userId);
 
-      // Save inputs and final AI result to localStorage
-      localStorage.setItem(
-        "dokterusaha_consultation",
-        JSON.stringify(consultation),
-      );
-      localStorage.setItem("dokterusaha_result", JSON.stringify(result));
-      // Batch 2.1 — Simpan ke history
-      const historyRaw = localStorage.getItem("dokterusaha_history");
-      const history = historyRaw ? JSON.parse(historyRaw) : [];
-      history.unshift({
+      // Save lightweight summary to dashboard cache for offline access
+      saveDashboardHistory({
         id: result.id,
-        consultationData: consultation,
-        diagnosisResult: result,
+        businessName: consultation.businessName,
+        healthScore: result.healthScore,
+        healthStatus: result.healthStatus,
+        urgency: result.urgency,
         createdAt: new Date().toISOString(),
       });
-      localStorage.setItem("dokterusaha_history", JSON.stringify(history));
 
-      toast.success("Diagnosis selesai diproses oleh Dokter AI!");
-      router.push("/result");
+      toast.success("Diagnosis selesai diproses oleh Dokter AI!", { id: toastId });
+      router.push(`/result?id=${result.id}`);
     } catch (error) {
       console.error(error);
-
-      const message = error instanceof Error ? error.message : "";
-
-      if (
-        message.includes("503") ||
-        message.includes("high demand") ||
-        message.includes("UNAVAILABLE")
-      ) {
-        toast.error(
-          "DokterUsaha AI sedang melayani banyak konsultasi. Silakan coba lagi beberapa saat lagi.",
-        );
-      } else if (message.includes("Failed to fetch")) {
-        toast.error(
-          "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.",
-        );
-      } else {
-        toast.error(
-          "Terjadi kesalahan saat melakukan diagnosis. Silakan coba kembali.",
-        );
-      }
+      const message = error instanceof Error ? error.message : "Terjadi kesalahan saat melakukan diagnosis.";
+      toast.error(message, { id: toastId });
     } finally {
-      if (!navigator.onLine) {
-        toast.error(
-          "Anda sedang offline. Periksa koneksi internet lalu coba lagi.",
-        );
-        return;
-      }
-
-      setIsSubmitting(true);
+      setIsSubmitting(false);
     }
   };
 

@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { Metadata } from "next"
 import {
   ClipboardList,
   Clock,
@@ -11,6 +10,8 @@ import {
   ArrowRight,
   ShieldCheck,
   HeartPulse,
+  ShieldAlert,
+  WifiOff,
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -24,6 +25,14 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { PageContainer } from "@/components/layout/PageContainer"
+import { getDiagnosesByUserId } from "@/lib/db-service"
+import { getOrCreateUserId } from "@/lib/utils"
+import {
+  getDashboardHistory,
+  syncDashboardCache,
+  DashboardCacheEntry,
+} from "@/lib/local-dashboard-cache"
+import { toast } from "sonner"
 
 const urgencyConfig = {
   rendah: {
@@ -59,32 +68,98 @@ const statusConfig = {
   },
 }
 
+// Shared type for display items — works for both Supabase and cached data
+type DashboardItem = {
+  id: string
+  businessName: string
+  healthScore: number
+  healthStatus: string
+  urgency: string
+  createdAt: string
+  // These fields only exist when data comes from Supabase (online mode)
+  mainProblem?: string
+  causes?: string[]
+  recommendations?: string[]
+}
+
 export default function DashboardPage() {
-  const [history, setHistory] = useState<any[]>([])
-  const [latestCheck, setLatestCheck] = useState<any | null>(null)
+  const [items, setItems] = useState<DashboardItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isOffline, setIsOffline] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    const raw = localStorage.getItem("dokterusaha_history")
-    if (!raw) return
-    try {
-      const parsed = JSON.parse(raw)
-      setHistory(parsed)
-      if (parsed && parsed.length > 0) {
-        setLatestCheck(parsed[0])
+    async function loadDashboardData() {
+      setIsLoading(true)
+      setErrorMsg(null)
+      setIsOffline(false)
+
+      try {
+        const userId = getOrCreateUserId()
+        const data = await getDiagnosesByUserId(userId)
+
+        // Map Supabase data to display items
+        const mapped: DashboardItem[] = data.map((item) => ({
+          id: item.id,
+          businessName: item.consultationData?.businessName ?? "-",
+          healthScore: item.diagnosisResult?.healthScore ?? 0,
+          healthStatus: item.diagnosisResult?.healthStatus ?? "perlu-perhatian",
+          urgency: item.diagnosisResult?.urgency ?? "sedang",
+          createdAt: item.createdAt,
+          mainProblem: item.consultationData?.mainProblem,
+          causes: item.diagnosisResult?.causes,
+          recommendations: item.diagnosisResult?.recommendations,
+        }))
+
+        setItems(mapped)
+
+        // Sync dashboard cache with fresh Supabase data
+        const cacheEntries: DashboardCacheEntry[] = mapped.map((item) => ({
+          id: item.id,
+          businessName: item.businessName,
+          healthScore: item.healthScore,
+          healthStatus: item.healthStatus,
+          urgency: item.urgency,
+          createdAt: item.createdAt,
+        }))
+        syncDashboardCache(cacheEntries)
+      } catch (err) {
+        console.error("Dashboard load error:", err)
+
+        // Attempt fallback from localStorage cache
+        const cached = getDashboardHistory()
+        if (cached.length > 0) {
+          const mapped: DashboardItem[] = cached.map((item) => ({
+            id: item.id,
+            businessName: item.businessName,
+            healthScore: item.healthScore,
+            healthStatus: item.healthStatus,
+            urgency: item.urgency,
+            createdAt: item.createdAt,
+          }))
+          setItems(mapped)
+          setIsOffline(true)
+          toast.info("Menampilkan riwayat konsultasi yang tersimpan di perangkat.", {
+            duration: 5000,
+          })
+        } else {
+          setErrorMsg("Gagal terhubung ke server dan tidak ada data tersimpan di perangkat.")
+        }
+      } finally {
+        setIsLoading(false)
       }
-    } catch {
-      setHistory([])
     }
+    loadDashboardData()
   }, [])
 
-  // Batch 2.3 — Statistik dinamis
-  const totalDiagnosis = history.length
-  const totalCauses = history.reduce(
-    (acc, item) => acc + (item.diagnosisResult?.causes?.length ?? 0),
+  // Dynamic statistics
+  const totalDiagnosis = items.length
+  const totalCauses = items.reduce(
+    (acc, item) => acc + (item.causes?.length ?? 0),
     0
   )
-  const totalRecommendations = history.reduce(
-    (acc, item) => acc + (item.diagnosisResult?.recommendations?.length ?? 0),
+  const totalRecommendations = items.reduce(
+    (acc, item) => acc + (item.recommendations?.length ?? 0),
     0
   )
 
@@ -97,23 +172,80 @@ export default function DashboardPage() {
     },
     {
       label: "Gejala/Akar Masalah Terdeteksi",
-      value: totalCauses.toString(),
+      value: isOffline ? "-" : totalCauses.toString(),
       icon: Activity,
-      trend:
-        totalDiagnosis > 0
+      trend: isOffline
+        ? "Data tersedia saat online"
+        : totalDiagnosis > 0
           ? `Rata-rata ${Math.round(totalCauses / totalDiagnosis)} per diagnosis`
           : "-",
     },
     {
       label: "Resep Solusi Diberikan",
-      value: totalRecommendations.toString(),
+      value: isOffline ? "-" : totalRecommendations.toString(),
       icon: HeartPulse,
-      trend:
-        totalDiagnosis > 0
+      trend: isOffline
+        ? "Data tersedia saat online"
+        : totalDiagnosis > 0
           ? `Rata-rata ${Math.round(totalRecommendations / totalDiagnosis)} per diagnosis`
           : "-",
     },
   ]
+
+  // Format date helper
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    } catch {
+      return dateStr
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <PageContainer>
+        <div className="flex flex-col gap-6">
+          {/* Hero Banner Skeleton */}
+          <div className="h-44 w-full rounded-2xl bg-muted/65 animate-pulse border border-border/10"></div>
+          {/* Stats Grid Skeletons */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="h-24 rounded-xl bg-muted/45 animate-pulse border border-border/10"></div>
+            <div className="h-24 rounded-xl bg-muted/45 animate-pulse border border-border/10"></div>
+            <div className="h-24 rounded-xl bg-muted/45 animate-pulse border border-border/10"></div>
+          </div>
+          {/* History Card Skeleton */}
+          <div className="h-64 rounded-xl bg-muted/35 animate-pulse border border-border/10"></div>
+        </div>
+      </PageContainer>
+    )
+  }
+
+  if (errorMsg) {
+    return (
+      <PageContainer>
+        <div className="flex flex-col gap-6">
+          <Card className="border-destructive-border/30 bg-destructive/5 shadow-sm">
+            <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+              <ShieldAlert className="size-12 text-destructive" />
+              <div className="flex flex-col gap-1.5">
+                <h2 className="text-lg font-bold text-destructive">Gagal Memuat Rekam Medis</h2>
+                <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                  {errorMsg}
+                </p>
+              </div>
+              <Button onClick={() => window.location.reload()}>Coba Lagi</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </PageContainer>
+    )
+  }
+
+  const latestItem = items.length > 0 ? items[0] : null
 
   return (
     <PageContainer>
@@ -133,14 +265,23 @@ export default function DashboardPage() {
               <p className="text-xs sm:text-sm text-[#003647]/80 font-medium leading-relaxed">
                 Selamat datang kembali! Mari pantau kondisi vitalitas dan resep perbaikan usaha Anda secara berkala.
               </p>
-              {latestCheck && (
+
+              {/* Offline Mode Badge */}
+              {isOffline && (
+                <div className="mt-2 flex items-center gap-2 text-xs bg-warning/30 text-warning-foreground px-3 py-2 rounded-lg w-fit border border-warning-border/30 font-semibold shadow-sm">
+                  <WifiOff className="size-3.5" />
+                  <span>📡 Offline Mode — Menampilkan riwayat tersimpan di perangkat</span>
+                </div>
+              )}
+
+              {!isOffline && latestItem && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-[#002D54] bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-lg w-fit border border-white/20 font-semibold shadow-sm">
                   <span>Diagnosa Terakhir:</span>
-                  <span className="font-extrabold">{latestCheck.consultationData?.businessName}</span>
+                  <span className="font-extrabold">{latestItem.businessName}</span>
                   <span className="opacity-40">•</span>
                   <span>Skor:</span>
                   <span className="font-extrabold bg-[#002D54] text-white px-1.5 py-0.5 rounded text-[10px]">
-                    {latestCheck.diagnosisResult?.healthScore}/100
+                    {latestItem.healthScore}/100
                   </span>
                 </div>
               )}
@@ -190,16 +331,18 @@ export default function DashboardPage() {
                   Lembar Riwayat Rekam Medis (Medical Records)
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Daftar diagnosa klinis dan rekomendasi terapi usaha Anda sebelumnya
+                  {isOffline
+                    ? "Riwayat konsultasi dari penyimpanan lokal perangkat"
+                    : "Daftar diagnosa klinis dan rekomendasi terapi usaha Anda sebelumnya"}
                 </CardDescription>
               </div>
-              <Badge variant="secondary" className="text-xs">
-                {history.length} Diagnosis
+              <Badge variant="secondary" className="text-xs font-semibold">
+                {items.length} Diagnosis
               </Badge>
             </div>
           </CardHeader>
           <CardContent>
-            {history.length === 0 ? (
+            {items.length === 0 ? (
               <div className="flex flex-col items-center gap-4 py-12 px-6 text-center bg-secondary/10 border border-secondary-border/20 rounded-xl max-w-md mx-auto my-6 shadow-sm">
                 <div className="flex size-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-sm">
                   <Stethoscope className="size-6" />
@@ -220,51 +363,48 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="flex flex-col divide-y divide-border/50">
-                {history.map((item) => {
-                  const dr = item.diagnosisResult
+                {items.map((item) => {
                   const urgency =
-                    urgencyConfig[dr.urgency as keyof typeof urgencyConfig]
+                    urgencyConfig[item.urgency as keyof typeof urgencyConfig]
                   const status =
-                    statusConfig[dr.healthStatus as keyof typeof statusConfig]
+                    statusConfig[item.healthStatus as keyof typeof statusConfig]
                   return (
                     <div
                       key={item.id}
                       className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-col gap-1.5 text-left">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">
-                            {item.consultationData?.businessName ?? "-"}
+                          <span className="text-sm font-bold text-foreground">
+                            {item.businessName}
                           </span>
                           {urgency && (
-                            <Badge variant="outline" className={urgency.className}>
+                            <Badge className={urgency.className}>
                               Urgensi: {urgency.label}
                             </Badge>
                           )}
                           {status && (
-                            <Badge variant="outline" className={status.className}>
-                              Status: {status.label} ({dr.healthScore}/100)
+                            <Badge className={status.className}>
+                              Status: {status.label} ({item.healthScore}/100)
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
-                          "{item.consultationData?.mainProblem ?? "-"}"
-                        </p>
+                        {/* Main problem only available when online (from Supabase) */}
+                        {item.mainProblem && (
+                          <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
+                            &quot;{item.mainProblem}&quot;
+                          </p>
+                        )}
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
                           <Calendar className="size-3" />
-                          Pemeriksaan dilakukan pada{" "}
-                          {new Date(item.createdAt).toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
+                          Pemeriksaan dilakukan pada {formatDate(item.createdAt)}
                         </div>
                       </div>
-                      <Link href="/result" className="shrink-0">
+                      <Link href={`/result?id=${item.id}`} className="shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-1.5 text-xs w-full sm:w-auto"
+                          className="gap-1.5 text-xs w-full sm:w-auto font-semibold"
                         >
                           Buka Resep
                           <ArrowRight className="size-3" strokeWidth={2.5} />
@@ -282,7 +422,9 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2.5 justify-center rounded-lg border border-dashed border-success-border/30 bg-success/5 p-4 text-center">
           <ShieldCheck className="size-4 text-success-foreground shrink-0" />
           <p className="text-[10px] text-muted-foreground/80 max-w-md leading-relaxed">
-            Data rekam medis tersimpan secara lokal dan dienkripsi untuk kerahasiaan bisnis Anda. Konsultasi berkala membantu menjaga vitalitas usaha Anda tetap bugar di tengah dinamika pasar.
+            {isOffline
+              ? "Menampilkan riwayat tersimpan. Sambungkan internet untuk mengakses data terbaru dan resep diagnosis lengkap."
+              : "Data rekam medis tersimpan secara aman di cloud dan di-cache secara lokal untuk akses offline. Konsultasi berkala membantu menjaga vitalitas usaha Anda tetap bugar."}
           </p>
         </div>
       </div>

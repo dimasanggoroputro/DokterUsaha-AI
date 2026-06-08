@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Stethoscope,
   AlertTriangle,
@@ -13,6 +14,8 @@ import {
   HeartPulse,
   Activity,
   CheckCircle2,
+  ShieldAlert,
+  WifiOff,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,206 +33,7 @@ import { HealthScoreRing } from "@/components/diagnosis/HealthScoreRing";
 import { ActionPlanTimeline } from "@/components/diagnosis/ActionPlanTimeline";
 import { DiagnosisConfidence } from "@/components/diagnosis/DiagnosisConfidence";
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
-
-const getMockDiagnosis = (
-  consultation: ConsultationData | null,
-): DiagnosisResult => {
-  const businessName = consultation?.businessName || "Bisnis Anda";
-  const businessType = consultation?.businessType || "makanan";
-
-  const isCritical =
-    consultation?.mainProblem?.toLowerCase().includes("bangkrut") ||
-    consultation?.mainProblem?.toLowerCase().includes("tutup") ||
-    consultation?.mainProblem?.toLowerCase().includes("rugi besar") ||
-    consultation?.monthlyRevenue === "kurang-dari-5jt";
-
-  if (isCritical) {
-    return {
-      id: "diag-critical",
-      summary: `Usaha ${businessName} Anda saat ini berada dalam fase darurat operasional. Penurunan pendapatan yang signifikan dipadukan dengan tantangan kas yang mendesak menuntut intervensi segera.`,
-      urgency: "kritis",
-      healthScore: 32,
-      healthStatus: "kritis",
-      confidenceScore: 95,
-      dataQuality: "tinggi",
-      verdict: `HASIL PEMERIKSAAN UTAMA: Usaha Anda terdiagnosis mengalami 'Dehidrasi Likuiditas' akut. Aliran kas keluar lebih deras dibanding arus kas masuk, diperparah oleh tekanan persaingan pasar yang ketat. Anda harus segera memisahkan uang bisnis dengan uang pribadi, menunda belanja modal non-esensial, serta merumuskan penawaran likuidasi stok lambat demi menyuntikkan kas segar dalam 48 jam ke depan.`,
-      insights: [
-        "Masalah terbesar usaha Anda kemungkinan bukan kurangnya modal, melainkan kebocoran kas harian akibat pencampuran keuangan pribadi.",
-        "Mengurangi variasi produk lambat laku (slow-moving) akan langsung melepaskan kas yang terikat pada stok mati.",
-      ],
-      strengths: [
-        "Memiliki kemauan kuat dari pemilik untuk melakukan perbaikan operasional secara mendasar",
-        "Tujuan akhir bisnis terdefinisi dengan jelas",
-      ],
-      causes: [
-        "Struktur pengeluaran harian tidak terkontrol dan mencampur keuangan pribadi",
-        "Penurunan volume pelanggan harian di bawah titik impas (break-even point)",
-        "Ketiadaan dana cadangan darurat untuk menyokong kebutuhan operasional harian",
-        "Penumpukan barang modal/stok mati yang mengunci perputaran kas",
-      ],
-      recommendations: [
-        "Hentikan sementara seluruh pengeluaran modal (renovasi, beli alat baru, dll) selama 14 hari",
-        "Lakukan konversi stok mati menjadi kas dengan mengadakan promo cuci gudang / paket rugi",
-        "Buat pemisahan kas fisik warung dengan dompet rumah tangga hari ini juga",
-        "Minta keringanan tenor pembayaran kepada supplier langganan secara kekeluargaan",
-      ],
-      actionPlan: [
-        {
-          week: 1,
-          title: "Tindakan Darurat Kas & Pemisahan Dompet",
-          tasks: [
-            "Buka rekening bank terpisah khusus usaha atau siapkan wadah kas terisolasi",
-            "Tulis daftar seluruh sisa stok barang dan buat harga promo diskon 20-30% untuk menghabiskan stok mati",
-            "Hitung biaya operasional mutlak mingguan (sewa, listrik, gaji) untuk 4 minggu ke depan",
-          ],
-        },
-        {
-          week: 2,
-          title: "Negosiasi Supplier & Efisiensi Bahan",
-          tasks: [
-            "Hubungi supplier utama untuk menegosiasikan kelonggaran pembayaran bahan baku",
-            "Kurangi variasi menu atau stok barang yang jarang dibeli, fokus hanya pada 3 produk terlaris",
-            "Catat arus kas masuk harian dan laporkan di akhir hari",
-          ],
-        },
-        {
-          week: 3,
-          title: "Restrukturisasi Harga & Penawaran Baru",
-          tasks: [
-            "Sesuaikan harga jual jika harga bahan baku naik, komunikasikan dengan ramah ke pelanggan",
-            "Mulai tawarkan layanan pesan antar ojek online untuk menambah opsi orderan masuk",
-            "Kaji ulang kondisi kas bersih setelah 14 hari pengetatan ikat pinggang",
-          ],
-        },
-      ],
-      createdAt: new Date().toLocaleDateString("id-ID"),
-    };
-  }
-
-  if (businessType === "makanan") {
-    return {
-      id: "diag-food-1",
-      summary: `Bisnis kuliner ${businessName} Anda menghadapi tantangan loyalitas pembeli dan persaingan harga. Omzet Anda terpengaruh oleh fluktuasi kedatangan pembeli baru serta kurangnya promosi aktif.`,
-      urgency: "tinggi",
-      healthScore: 58,
-      healthStatus: "perlu-perhatian",
-      confidenceScore: 95,
-      dataQuality: "tinggi",
-      verdict: `HASIL PEMERIKSAAN UTAMA: Dokter mendeteksi gejala 'Kelesuan Trafik Pembeli'. Hal ini umum terjadi akibat munculnya opsi makanan alternatif yang lebih murah di sekitar Anda. Tenang, pondasi bisnis Anda masih kokoh. Dokter menyarankan aktivasi promo loyalitas kecil, penyempurnaan kebersihan area makan, dan pendaftaran ke ekosistem ojek online untuk membuka pintu penjualan baru.`,
-      insights: [
-        "Sepinya pembeli kemungkinan besar terjadi karena munculnya kompetitor baru dengan harga lebih bersaing di dekat lokasi Anda.",
-        "Pelanggan lama yang jarang kembali menunjukkan adanya penurunan kepuasan layanan atau kejenuhan menu yang belum Anda sadari.",
-      ],
-      strengths: [
-        "Sektor bisnis makanan memiliki permintaan pasar harian yang stabil",
-        "Sudah memiliki pemahaman produk yang baik",
-      ],
-      causes: [
-        "Munculnya kompetitor kuliner baru yang menawarkan harga lebih murah atau promo gencar",
-        "Kurangnya aktivitas promosi digital untuk menjangkau pelanggan baru di luar radius berjalan kaki",
-        "Fluktuasi konsistensi kualitas porsi atau rasa hidangan",
-        "Pelanggan lama mulai jenuh dengan variasi menu yang monoton",
-      ],
-      recommendations: [
-        "Buat program kartu stamp loyalitas (beli 9 porsi gratis 1 porsi) untuk mengikat pelanggan tetap",
-        "Segera daftarkan titik kuliner Anda ke minimal dua aplikasi pemesanan makanan online utama",
-        "Pastikan resep porsi dan rasa dicatat tertulis agar koki/karyawan melayani secara konsisten",
-        "Buat menu paket hemat (nasi + lauk + es teh) dengan harga coret untuk pembeli sensitif harga",
-      ],
-      actionPlan: [
-        {
-          week: 1,
-          title: "Standardisasi Porsi & Riset Harga",
-          tasks: [
-            "Tulis takaran pasti untuk setiap piring (misalnya gramasi daging, takaran bumbu dasar)",
-            "Lakukan survei kecil dengan mampir ke warung kompetitor untuk melihat menu dan harga mereka",
-            "Siapkan kartu stamp sederhana (bisa diprint sendiri) untuk program loyalis pelanggan",
-          ],
-        },
-        {
-          week: 2,
-          title: "Aktivasi Penjualan Digital & Kebersihan",
-          tasks: [
-            "Mulai proses registrasi merchant makanan online (siapkan KTP dan foto menu)",
-            "Bersihkan dan tata ulang pencahayaan area depan warung agar terlihat cerah dan bersih",
-            "Mulai bagikan kartu stamp loyalitas ke setiap pembeli dine-in",
-          ],
-        },
-        {
-          week: 3,
-          title: "Peluncuran Promo & Menu Paket",
-          tasks: [
-            "Pasang spanduk kecil di depan warung bertuliskan menu paket hemat baru",
-            "Bagikan brosur sederhana atau share menu ke grup WhatsApp RT/RW sekitar warung",
-            "Evaluasi apakah ada peningkatan transaksi harian dari program loyalis",
-          ],
-        },
-      ],
-      createdAt: new Date().toLocaleDateString("id-ID"),
-    };
-  }
-
-  return {
-    id: "diag-default",
-    summary: `Bisnis retail/jasa ${businessName} Anda terindikasi mengalami gejala penyusutan margin laba akibat fluktuasi musiman dan pencatatan kas yang belum tertib.`,
-    urgency: "sedang",
-    healthScore: 72,
-    healthStatus: "sehat",
-    confidenceScore: 90,
-    dataQuality: "sedang",
-    verdict: `HASIL PEMERIKSAAN UTAMA: Hasil pemeriksaan klinis menunjukkan bisnis dalam keadaan 'Cukup Bugar' namun rawan terhadap kebocoran kas kecil. Dokter menyarankan pendisiplinan pencatatan keuangan harian, pemisahan uang pribadi, dan penataan ulang display toko untuk merangsang pembelian impulsif dari pelanggan yang datang.`,
-    insights: [
-      "Meskipun penjualan Anda terlihat stabil, inefisiensi pada penataan display produk menghambat peluang transaksi impulsif tambahan.",
-      "Pemberdayaan WhatsApp Business dapat melipatgandakan repeat order dari pelanggan lokal tanpa biaya iklan tambahan.",
-    ],
-    strengths: [
-      "Struktur operasional yang fleksibel dan efisien",
-      "Skor kesehatan umum berada dalam kategori Sehat",
-    ],
-    causes: [
-      "Pencatatan kas keluar-masuk belum rapi sehingga laba bersih harian sulit dihitung pasti",
-      "Display barang terlaris kurang menonjol di area pandang pembeli",
-      "Belum mengoptimalkan pesan chat WhatsApp untuk melayani pelanggan lokal secara instan",
-      "Pencampuran dana usaha dengan dana dompet pribadi",
-    ],
-    recommendations: [
-      "Beli buku kas khusus atau unduh aplikasi pencatatan keuangan untuk warung",
-      "Tata produk paling laku atau barang pelengkap di dekat kasir untuk merangsang belanja tambahan",
-      "Gunakan WhatsApp Business dan cantumkan nomornya di etalase depan toko agar tetangga bisa memesan jarak jauh",
-      "Ambil gaji bulanan tetap untuk diri Anda sendiri, jangan ambil kas warung secara acak",
-    ],
-    actionPlan: [
-      {
-        week: 1,
-        title: "Disiplin Kas & Tata Ruang",
-        tasks: [
-          "Mulai mencatat setiap transaksi rupiah tanpa terkecuali pada buku kas terdedikasi",
-          "Tata ulang rak pajangan, taruh produk promo di area pandang utama pembeli",
-          "Pisahkan dompet pribadi dan laci uang warung fisik",
-        ],
-      },
-      {
-        week: 2,
-        title: "WhatsApp Order & Penawaran Lokal",
-        tasks: [
-          "Unduh dan pasang profil usaha di WhatsApp Business",
-          "Buat tulisan di etalase: 'Bisa Pesan Lewat WA & Kirim ke Rumah (Hubungi: 08xx...)'",
-          "Tawarkan paket bundling produk pelengkap (contoh: detergen + pewangi dengan harga hemat)",
-        ],
-      },
-      {
-        week: 3,
-        title: "Evaluasi Kas Mingguan",
-        tasks: [
-          "Hitung laba bersih warung setelah berjalan tertib selama 14 hari",
-          "Identifikasi barang dagangan yang lambat berputar (slow moving) untuk dikurangi pemesanan berikutnya",
-          "Tentukan nominal gaji tetap bulanan Anda agar tidak mengganggu kas utama warung",
-        ],
-      },
-    ],
-    createdAt: new Date().toLocaleDateString("id-ID"),
-  };
-};
+import { getDiagnosisById, getDiagnosesByUserId } from "@/lib/db-service";
 
 const urgencyConfig = {
   rendah: {
@@ -250,7 +54,7 @@ const urgencyConfig = {
   },
 };
 
-export default function ResultPage() {
+function ResultPageContent() {
   const [consultation, setConsultation] = useState<ConsultationData | null>(
     null,
   );
@@ -259,55 +63,122 @@ export default function ResultPage() {
     null,
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isOfflineError, setIsOfflineError] = useState(false);
+
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
 
-    const savedConsultation = localStorage.getItem("dokterusaha_consultation");
-    const savedResult = localStorage.getItem("dokterusaha_result");
-
-    if (savedConsultation) {
-      try {
-        setConsultation(JSON.parse(savedConsultation) as ConsultationData);
-      } catch (e) {
-        console.error(e);
+    async function loadDiagnosis() {
+      if (!id) {
+        setIsLoading(false);
+        return;
       }
-    }
-
-    if (savedResult) {
+      setIsLoading(true);
+      setErrorMsg(null);
+      setIsOfflineError(false);
       try {
-        setResult(JSON.parse(savedResult) as DiagnosisResult);
-      } catch (e) {
-        console.error(e);
-        setResult(null);
-      }
-    }
+        const data = await getDiagnosisById(id);
+        if (data) {
+          setConsultation(data.consultationData);
+          setResult(data.diagnosisResult);
 
-    // Batch 3 — Comparison score
-    const historyRaw = localStorage.getItem("dokterusaha_history");
-    if (historyRaw) {
-      try {
-        const history = JSON.parse(historyRaw);
-        if (history.length >= 2) {
-          setPreviousResult(history[1].diagnosisResult);
+          // Get user diagnoses to find the previous one for comparison
+          if (data.user_id) {
+            const history = await getDiagnosesByUserId(data.user_id);
+            const currentIndex = history.findIndex((h) => h.id === id);
+            if (currentIndex !== -1 && currentIndex + 1 < history.length) {
+              setPreviousResult(history[currentIndex + 1].diagnosisResult);
+            }
+          }
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        console.error("Fetch diagnosis error:", err);
+        // Detect offline/network errors specifically
+        const isOffline =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          (err instanceof Error &&
+            (err.message.includes("fetch") ||
+              err.message.includes("network") ||
+              err.message.includes("Failed to fetch") ||
+              err.message.includes("NetworkError")));
+        if (isOffline) {
+          setIsOfflineError(true);
+        } else {
+          setErrorMsg("Gagal terhubung ke server. Periksa koneksi internet Anda.");
+        }
+      } finally {
+        setIsLoading(false);
       }
     }
 
-    setIsLoading(false);
-  }, []);
+    loadDiagnosis();
+  }, [id]);
 
   if (isLoading) {
     return (
       <PageContainer maxWidth="sm">
         <div className="flex h-[400px] flex-col items-center justify-center gap-4 text-center">
           <Activity className="size-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Memuat diagnosis klinis bisnis...
+          <p className="text-sm text-muted-foreground font-semibold">
+            Membuat diagnosis klinis bisnis...
           </p>
         </div>
+      </PageContainer>
+    );
+  }
+
+  if (isOfflineError) {
+    return (
+      <PageContainer maxWidth="sm">
+        <Card className="border-warning-border/30 bg-warning/5 shadow-sm">
+          <CardContent className="flex flex-col items-center gap-5 py-12 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-warning/20 border border-warning-border/20 shadow-sm">
+              <WifiOff className="size-7 text-warning-foreground" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <h2 className="text-lg font-bold text-warning-foreground">
+                Resep Lengkap Memerlukan Koneksi Internet
+              </h2>
+              <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                Hasil diagnosis lengkap dan rencana aksi disimpan secara aman di cloud. Sambungkan internet untuk melihat resep bisnis terbaru.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 w-full max-w-xs">
+              <Button size="sm" onClick={() => window.location.reload()} className="w-full">
+                Coba Lagi
+              </Button>
+              <Link href="/dashboard" className="w-full">
+                <Button variant="outline" size="sm" className="w-full gap-1.5">
+                  <ArrowLeft className="size-3.5" />
+                  Kembali ke Dashboard
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </PageContainer>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <PageContainer maxWidth="sm">
+        <Card className="border-destructive-border/30 bg-destructive/5 shadow-sm">
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+            <ShieldAlert className="size-12 text-destructive" />
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-bold text-destructive">Terjadi Gangguan</h2>
+              <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                {errorMsg}
+              </p>
+            </div>
+            <Button size="sm" onClick={() => window.location.reload()}>Coba Lagi</Button>
+          </CardContent>
+        </Card>
       </PageContainer>
     );
   }
@@ -315,17 +186,17 @@ export default function ResultPage() {
   if (!result) {
     return (
       <PageContainer maxWidth="sm">
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-            <Stethoscope className="size-12 text-muted-foreground" />
-            <div>
-              <h2 className="text-lg font-bold">Belum Ada Hasil Diagnosis</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Anda belum melakukan pemeriksaan kesehatan bisnis.
+        <Card className="border-secondary-border/20 bg-secondary/5 shadow-sm">
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+            <Stethoscope className="size-12 text-secondary-foreground" />
+            <div className="flex flex-col gap-1.5">
+              <h2 className="text-lg font-bold text-[#002D54]">Diagnosis Tidak Ditemukan</h2>
+              <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                Hasil resep solusi tidak dapat ditemukan. Silakan lakukan diagnosis kesehatan bisnis terlebih dahulu.
               </p>
             </div>
             <Link href="/diagnosis">
-              <Button>Mulai Diagnosis</Button>
+              <Button size="sm">Mulai Diagnosis</Button>
             </Link>
           </CardContent>
         </Card>
@@ -333,13 +204,13 @@ export default function ResultPage() {
     );
   }
 
-  const urgency = urgencyConfig[result.urgency];
+  const urgency = urgencyConfig[result.urgency] || urgencyConfig.sedang;
 
   return (
     <PageContainer maxWidth="sm">
       <div className="flex flex-col gap-6">
         {/* Premium Title Header Banner */}
-        <div className="relative overflow-hidden rounded-2xl p-6 text-slate-900 shadow-sm border border-[#A5D6FA]/30">
+        <div className="relative overflow-hidden rounded-2xl bg-primary/20 p-6 text-slate-900 shadow-sm border border-[#A5D6FA]/30">
           <div className="absolute right-0 top-0 -mt-4 -mr-4 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
           <div className="relative flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -649,5 +520,24 @@ export default function ResultPage() {
         </Link>
       </div>
     </PageContainer>
+  );
+}
+
+export default function ResultPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageContainer maxWidth="sm">
+          <div className="flex h-[400px] flex-col items-center justify-center gap-4 text-center">
+            <Activity className="size-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground font-semibold">
+              Mempersiapkan resep solusi...
+            </p>
+          </div>
+        </PageContainer>
+      }
+    >
+      <ResultPageContent />
+    </Suspense>
   );
 }

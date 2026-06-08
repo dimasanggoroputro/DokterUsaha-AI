@@ -1,0 +1,35 @@
+{
+  "name": "DokterUsaha AI",
+  "short_name": "DokterUsaha",
+  "description": "Platform diagnosa bisnis berbasis AI untuk membantu pelaku UMKM mengidentifikasi masalah usaha dan mendapatkan rekomendasi solusi yang dapat diterapkan.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#C6E7FF",
+  "background_color": "#FBFBFB",
+  "categories": ["business", "productivity"],
+  "lang": "id",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "scope": "/",
+  "prefer_related_applications": false
+}
