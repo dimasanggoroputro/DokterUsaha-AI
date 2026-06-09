@@ -151,7 +151,7 @@ export async function getDiagnosesByUserId(userId: string): Promise<
 
   if (error) {
     console.error(`Supabase History Error (userId=${userId}):`, error);
-    return [];
+    throw error;
   }
 
   if (!data) return [];

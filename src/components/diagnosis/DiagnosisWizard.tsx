@@ -114,7 +114,6 @@ export function DiagnosisWizard() {
         businessName: consultation.businessName,
         healthScore: result.healthScore,
         healthStatus: result.healthStatus,
-        urgency: result.urgency,
         createdAt: new Date().toISOString(),
       });
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "dokterusaha-v1";
+const CACHE_NAME = "dokterusaha-v2";
 
 // Static assets to precache on install
 const PRECACHE_URLS = [
@@ -8,14 +8,17 @@ const PRECACHE_URLS = [
   "/manifest.json",
   "/favicon.ico",
   "/android-chrome-192x192.png",
-  "/icon-512x512.png",
+  "/android-chrome-512x512.png",
   "/apple-touch-icon.png",
 ];
 
 // Install event — precache static assets
 self.addEventListener("install", (event) => {
-  event.waitUntil(
+  console.log("SW Installed");
+
+ event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
+      console.log("Caching files...");
       return cache.addAll(PRECACHE_URLS);
     })
   );

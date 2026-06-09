@@ -1,4 +1,4 @@
-const CACHE_KEY = "dokterusaha_dashboard_cache";
+const CACHE_KEY = "dashboard-cache";
 const MAX_ENTRIES = 50;
 
 export type DashboardCacheEntry = {
@@ -6,7 +6,6 @@ export type DashboardCacheEntry = {
   businessName: string;
   healthScore: number;
   healthStatus: string;
-  urgency: string;
   createdAt: string;
 };
 

@@ -74,7 +74,7 @@ type DashboardItem = {
   businessName: string
   healthScore: number
   healthStatus: string
-  urgency: string
+  urgency?: string
   createdAt: string
   // These fields only exist when data comes from Supabase (online mode)
   mainProblem?: string
@@ -113,17 +113,16 @@ export default function DashboardPage() {
 
         setItems(mapped)
 
-        // Sync dashboard cache with fresh Supabase data
         const cacheEntries: DashboardCacheEntry[] = mapped.map((item) => ({
           id: item.id,
           businessName: item.businessName,
           healthScore: item.healthScore,
           healthStatus: item.healthStatus,
-          urgency: item.urgency,
           createdAt: item.createdAt,
         }))
         syncDashboardCache(cacheEntries)
       } catch (err) {
+        console.log("Dashboard Catch Jalan");
         console.error("Dashboard load error:", err)
 
         // Attempt fallback from localStorage cache
@@ -134,7 +133,6 @@ export default function DashboardPage() {
             businessName: item.businessName,
             healthScore: item.healthScore,
             healthStatus: item.healthStatus,
-            urgency: item.urgency,
             createdAt: item.createdAt,
           }))
           setItems(mapped)
@@ -270,7 +268,7 @@ export default function DashboardPage() {
               {isOffline && (
                 <div className="mt-2 flex items-center gap-2 text-xs bg-warning/30 text-warning-foreground px-3 py-2 rounded-lg w-fit border border-warning-border/30 font-semibold shadow-sm">
                   <WifiOff className="size-3.5" />
-                  <span>📡 Offline Mode — Menampilkan riwayat tersimpan di perangkat</span>
+                  <span>Mode Offline — Menampilkan data terakhir yang tersimpan</span>
                 </div>
               )}
 
@@ -327,7 +325,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Clock className="size-4 text-primary" />
+                  <Clock className="size-4 text-primary-foreground" />
                   Lembar Riwayat Rekam Medis (Medical Records)
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -400,7 +398,16 @@ export default function DashboardPage() {
                           Pemeriksaan dilakukan pada {formatDate(item.createdAt)}
                         </div>
                       </div>
-                      <Link href={`/result?id=${item.id}`} className="shrink-0">
+                      <Link
+                        href={`/result?id=${item.id}`}
+                        className="shrink-0"
+                        onClick={(e) => {
+                          if (!navigator.onLine) {
+                            e.preventDefault();
+                            toast.error("Hubungkan internet untuk membuka resep lengkap.");
+                          }
+                        }}
+                      >
                         <Button
                           variant="outline"
                           size="sm"
