@@ -3,6 +3,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
 import { saveDiagnosis } from "@/lib/db-service";
+import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
 
 // Initialize GoogleGenAI client
 // Next.js Server Actions execute on the server, so process.env is accessible
@@ -11,7 +12,7 @@ const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 
 export async function createDiagnosisAction(
   consultationData: ConsultationData,
-  userId?: string
+  userId?: string,
 ): Promise<DiagnosisResult> {
   if (!apiKey) {
     throw new Error(
@@ -275,7 +276,11 @@ PANDUAN UTAMA DIAGNOSIS & ANALISIS:
     };
 
     // Save to Supabase diagnoses table
-    const dbId = await saveDiagnosis(consultationData, finalResult, userId || "anonymous");
+    const dbId = await saveDiagnosis(
+      consultationData,
+      finalResult,
+      userId || "anonymous",
+    );
 
     const finalResultWithId: DiagnosisResult = {
       ...finalResult,
@@ -285,60 +290,6 @@ PANDUAN UTAMA DIAGNOSIS & ANALISIS:
     return finalResultWithId;
   } catch (error) {
     console.error("Diagnosis Error:", error);
-
-    const message =
-      error instanceof Error ? error.message : String(error);
-
-    // Supabase save failure
-    if (
-      message.includes("gagal disimpan") ||
-      message.includes("insert") ||
-      message.includes("database") ||
-      message.includes("Supabase")
-    ) {
-      throw new Error("Diagnosis gagal disimpan. Silakan coba kembali.");
-    }
-
-    // Gemini overload
-    if (
-      message.includes("503") ||
-      message.includes("UNAVAILABLE") ||
-      message.includes("high demand")
-    ) {
-      throw new Error(
-        "Dokter AI sedang melayani banyak konsultasi saat ini. Silakan coba lagi dalam beberapa menit.",
-      );
-    }
-
-    // Rate limit
-    if (message.includes("429") || message.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error(
-        "Permintaan konsultasi sedang sangat ramai. Mohon tunggu beberapa saat sebelum mencoba kembali.",
-      );
-    }
-
-    // API Key salah
-    if (message.includes("API_KEY") || message.includes("API key")) {
-      throw new Error(
-        "Sistem diagnosis sedang dalam pemeliharaan. Silakan hubungi administrator.",
-      );
-    }
-
-    // Koneksi / server / network
-    if (
-      message.includes("fetch") ||
-      message.includes("network") ||
-      message.includes("ECONNRESET") ||
-      message.includes("ETIMEDOUT")
-    ) {
-      throw new Error(
-        "Gagal terhubung ke server. Periksa koneksi internet Anda.",
-      );
-    }
-
-    // Fallback
-    throw new Error(
-      "Terjadi kendala saat membuat hasil diagnosis. Silakan coba kembali beberapa saat lagi.",
-    );
+    throw new Error(getUserFriendlyErrorMessage(error));
   }
 }

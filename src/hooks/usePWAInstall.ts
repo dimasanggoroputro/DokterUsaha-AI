@@ -15,18 +15,18 @@ interface BeforeInstallPromptEvent extends Event {
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.matchMedia("(display-mode: standalone)").matches;
+    } catch {
+      return false;
+    }
+  });
   const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
-    // Check if already installed (standalone mode)
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(display-mode: standalone)").matches
-    ) {
-      setIsInstalled(true);
-      return;
-    }
+    // Browser event handlers for install prompt and appinstalled
 
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent default browser install prompt
@@ -47,7 +47,7 @@ export function usePWAInstall() {
     return () => {
       window.removeEventListener(
         "beforeinstallprompt",
-        handleBeforeInstallPrompt
+        handleBeforeInstallPrompt,
       );
       window.removeEventListener("appinstalled", handleAppInstalled);
     };

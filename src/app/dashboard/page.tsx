@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { getDiagnosesByUserId } from "@/lib/db-service"
 import { getOrCreateUserId } from "@/lib/utils"
+import { getUserFriendlyErrorMessage } from "@/lib/error-handler"
 import {
   getDashboardHistory,
   syncDashboardCache,
@@ -122,7 +123,7 @@ export default function DashboardPage() {
         }))
         syncDashboardCache(cacheEntries)
       } catch (err) {
-        console.log("Dashboard Catch Jalan");
+        console.log("Dashboard Catch Jalan")
         console.error("Dashboard load error:", err)
 
         // Attempt fallback from localStorage cache
@@ -141,7 +142,7 @@ export default function DashboardPage() {
             duration: 5000,
           })
         } else {
-          setErrorMsg("Gagal terhubung ke server dan tidak ada data tersimpan di perangkat.")
+          setErrorMsg(getUserFriendlyErrorMessage(err))
         }
       } finally {
         setIsLoading(false)

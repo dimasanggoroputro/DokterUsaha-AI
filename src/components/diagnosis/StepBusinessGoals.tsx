@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+// no React named imports needed here
 import { useFormContext } from "react-hook-form";
 import { Target, Sparkles } from "lucide-react";
 import { ConsultationFormValues } from "@/lib/consultation-schema";
@@ -20,9 +20,9 @@ export function StepBusinessGoals() {
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-lg bg-success/10 p-4 text-sm text-success-foreground leading-relaxed border border-success/20">
-        <strong>Tujuan & Harapan Usaha.</strong> Agar diagnosa dan
-        rekomendasi Dokter sesuai sasaran, ceritakan apa target jangka
-        pendek/panjang Anda dan hasil akhir yang paling Anda inginkan.
+        <strong>Tujuan & Harapan Usaha.</strong> Agar diagnosa dan rekomendasi
+        Dokter sesuai sasaran, ceritakan apa target jangka pendek/panjang Anda
+        dan hasil akhir yang paling Anda inginkan.
       </div>
 
       {/* Target Bisnis */}
@@ -75,7 +75,7 @@ export function StepBusinessGoals() {
           <p className="text-xs font-medium text-destructive mt-0.5">
             {errors.expectedOutcome.message}
           </p>
-        )}{" "}
+        )}
       </div>
     </div>
   );

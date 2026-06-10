@@ -1,11 +1,17 @@
-"use client"
+"use client";
 
-import { Calendar, CheckCircle2, ChevronRight } from "lucide-react"
-import { ActionPlanWeek } from "@/types/diagnosis"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Calendar, CheckCircle2 } from "lucide-react";
+import { ActionPlanWeek } from "@/types/diagnosis";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 
 interface ActionPlanTimelineProps {
-  timeline: ActionPlanWeek[]
+  timeline: ActionPlanWeek[];
 }
 
 export function ActionPlanTimeline({ timeline }: ActionPlanTimelineProps) {
@@ -17,8 +23,12 @@ export function ActionPlanTimeline({ timeline }: ActionPlanTimelineProps) {
             <Calendar className="size-4" />
           </div>
           <div>
-            <CardTitle className="text-base">Resep Rencana Aksi (Action Plan)</CardTitle>
-            <CardDescription className="text-xs">Panduan langkah per minggu yang disiapkan oleh Dokter Bisnis AI</CardDescription>
+            <CardTitle className="text-base">
+              Resep Rencana Aksi (Action Plan)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Panduan langkah per minggu yang disiapkan oleh Dokter Bisnis AI
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -39,7 +49,10 @@ export function ActionPlanTimeline({ timeline }: ActionPlanTimelineProps) {
 
                 <ul className="mt-3 space-y-2.5">
                   {plan.tasks.map((task, taskIdx) => (
-                    <li key={taskIdx} className="flex items-start gap-2.5 text-xs text-muted-foreground leading-relaxed">
+                    <li
+                      key={taskIdx}
+                      className="flex items-start gap-2.5 text-xs text-muted-foreground leading-relaxed"
+                    >
                       <CheckCircle2 className="size-3.5 text-success-foreground shrink-0 mt-0.5" />
                       <span>{task}</span>
                     </li>
@@ -51,5 +64,5 @@ export function ActionPlanTimeline({ timeline }: ActionPlanTimelineProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

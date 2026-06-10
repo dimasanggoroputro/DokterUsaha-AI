@@ -34,23 +34,28 @@ import { ActionPlanTimeline } from "@/components/diagnosis/ActionPlanTimeline";
 import { DiagnosisConfidence } from "@/components/diagnosis/DiagnosisConfidence";
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
 import { getDiagnosisById, getDiagnosesByUserId } from "@/lib/db-service";
+import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
 
 const urgencyConfig = {
   rendah: {
     label: "Rendah",
-    className: "bg-success/20 text-success-foreground border border-success-border/20 font-semibold",
+    className:
+      "bg-success/20 text-success-foreground border border-success-border/20 font-semibold",
   },
   sedang: {
     label: "Sedang",
-    className: "bg-warning/20 text-warning-foreground border border-warning-border/20 font-semibold",
+    className:
+      "bg-warning/20 text-warning-foreground border border-warning-border/20 font-semibold",
   },
   tinggi: {
     label: "Tinggi",
-    className: "bg-warning/35 text-warning-foreground border border-warning-border/30 font-bold",
+    className:
+      "bg-warning/35 text-warning-foreground border border-warning-border/30 font-bold",
   },
   kritis: {
     label: "Kritis",
-    className: "bg-destructive/20 text-destructive border border-destructive-border/20 font-bold",
+    className:
+      "bg-destructive/20 text-destructive border border-destructive-border/20 font-bold",
   },
 };
 
@@ -97,18 +102,15 @@ function ResultPageContent() {
         }
       } catch (err) {
         console.error("Fetch diagnosis error:", err);
-        // Detect offline/network errors specifically
+        const message = getUserFriendlyErrorMessage(err);
         const isOffline =
           (typeof navigator !== "undefined" && !navigator.onLine) ||
-          (err instanceof Error &&
-            (err.message.includes("fetch") ||
-              err.message.includes("network") ||
-              err.message.includes("Failed to fetch") ||
-              err.message.includes("NetworkError")));
+          message ===
+            "Tidak ada koneksi internet. Periksa jaringan Anda lalu coba lagi.";
         if (isOffline) {
           setIsOfflineError(true);
         } else {
-          setErrorMsg("Gagal terhubung ke server. Periksa koneksi internet Anda.");
+          setErrorMsg(message);
         }
       } finally {
         setIsLoading(false);
@@ -144,11 +146,16 @@ function ResultPageContent() {
                 Resep Lengkap Memerlukan Koneksi Internet
               </h2>
               <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
-                Hasil diagnosis lengkap dan rencana aksi disimpan secara aman di cloud. Sambungkan internet untuk melihat resep bisnis terbaru.
+                Hasil diagnosis lengkap dan rencana aksi disimpan secara aman di
+                cloud. Sambungkan internet untuk melihat resep bisnis terbaru.
               </p>
             </div>
             <div className="flex flex-col gap-2 w-full max-w-xs">
-              <Button size="sm" onClick={() => window.location.reload()} className="w-full">
+              <Button
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="w-full"
+              >
                 Coba Lagi
               </Button>
               <Link href="/dashboard" className="w-full">
@@ -171,12 +178,16 @@ function ResultPageContent() {
           <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
             <ShieldAlert className="size-12 text-destructive" />
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-bold text-destructive">Terjadi Gangguan</h2>
+              <h2 className="text-lg font-bold text-destructive">
+                Terjadi Gangguan
+              </h2>
               <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
                 {errorMsg}
               </p>
             </div>
-            <Button size="sm" onClick={() => window.location.reload()}>Coba Lagi</Button>
+            <Button size="sm" onClick={() => window.location.reload()}>
+              Coba Lagi
+            </Button>
           </CardContent>
         </Card>
       </PageContainer>
@@ -190,9 +201,12 @@ function ResultPageContent() {
           <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
             <Stethoscope className="size-12 text-secondary-foreground" />
             <div className="flex flex-col gap-1.5">
-              <h2 className="text-lg font-bold text-[#002D54]">Diagnosis Tidak Ditemukan</h2>
+              <h2 className="text-lg font-bold text-[#002D54]">
+                Diagnosis Tidak Ditemukan
+              </h2>
               <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                Hasil resep solusi tidak dapat ditemukan. Silakan lakukan diagnosis kesehatan bisnis terlebih dahulu.
+                Hasil resep solusi tidak dapat ditemukan. Silakan lakukan
+                diagnosis kesehatan bisnis terlebih dahulu.
               </p>
             </div>
             <Link href="/diagnosis">
@@ -265,7 +279,9 @@ function ResultPageContent() {
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive text-xs font-bold text-white shadow-sm">
                   {index + 1}
                 </div>
-                <p className="text-xs leading-relaxed text-foreground">{item}</p>
+                <p className="text-xs leading-relaxed text-foreground">
+                  {item}
+                </p>
               </div>
             ))}
           </CardContent>
@@ -290,7 +306,7 @@ function ResultPageContent() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4 text-sm leading-relaxed font-serif text-primary-foreground italic">
-            "{result.verdict}"
+            &quot;{result.verdict}&quot;
             <div className="mt-4 flex items-center justify-between not-italic font-sans text-xs text-primary-foreground/80">
               <span className="font-bold">Dr. DokterUsaha AI</span>
               <span className="border-t border-primary-foreground/30 pt-1 px-4 text-center">
@@ -324,7 +340,8 @@ function ResultPageContent() {
                 <span>Insight DokterUsaha AI</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Temuan penting yang mungkin belum Anda sadari dari kondisi usaha Anda.
+                Temuan penting yang mungkin belum Anda sadari dari kondisi usaha
+                Anda.
               </p>
             </div>
             <div className="grid gap-2">
@@ -383,7 +400,8 @@ function ResultPageContent() {
               Penyebab Potensial (Akar Masalah)
             </CardTitle>
             <CardDescription className="text-xs">
-              Faktor-faktor yang teridentifikasi memperburuk kesehatan usaha Anda
+              Faktor-faktor yang teridentifikasi memperburuk kesehatan usaha
+              Anda
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2">

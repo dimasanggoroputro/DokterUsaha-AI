@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
+import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
 
 export interface DiagnosisRow {
   id: string;
@@ -54,7 +55,9 @@ export function mapRowToDiagnosis(row: DiagnosisRow): {
       insights: Array.isArray(res?.insights) ? res.insights : [],
       strengths: Array.isArray(res?.strengths) ? res.strengths : [],
       causes: Array.isArray(res?.causes) ? res.causes : [],
-      recommendations: Array.isArray(res?.recommendations) ? res.recommendations : [],
+      recommendations: Array.isArray(res?.recommendations)
+        ? res.recommendations
+        : [],
       actionPlan: Array.isArray(res?.actionPlan) ? res.actionPlan : [],
       createdAt: formattedDate,
     },
@@ -68,7 +71,7 @@ export function mapRowToDiagnosis(row: DiagnosisRow): {
 export async function saveDiagnosis(
   consultationData: ConsultationData,
   result: Omit<DiagnosisResult, "id">,
-  userId: string
+  userId: string,
 ): Promise<string> {
   const { data, error } = await supabase
     .from("diagnoses")
@@ -98,7 +101,7 @@ export async function saveDiagnosis(
 
   if (error) {
     console.error("Supabase Save Error Details:", error);
-    throw new Error(`Supabase insert failed: ${error.message}`);
+    throw new Error(getUserFriendlyErrorMessage(error));
   }
 
   if (!data || !data.id) {
@@ -124,7 +127,7 @@ export async function getDiagnosisById(id: string): Promise<{
 
   if (error) {
     console.error(`Supabase Fetch Error (id=${id}):`, error);
-    return null;
+    throw new Error(getUserFriendlyErrorMessage(error));
   }
 
   if (!data) return null;
@@ -151,7 +154,7 @@ export async function getDiagnosesByUserId(userId: string): Promise<
 
   if (error) {
     console.error(`Supabase History Error (userId=${userId}):`, error);
-    throw error;
+    throw new Error(getUserFriendlyErrorMessage(error));
   }
 
   if (!data) return [];

@@ -14,8 +14,6 @@ import { StepBusinessProblems } from "./StepBusinessProblems";
 import { StepBusinessGoals } from "./StepBusinessGoals";
 import {
   consultationSchema,
-  step1Schema,
-  step2Schema,
   ConsultationFormValues,
 } from "@/lib/consultation-schema";
 
@@ -24,6 +22,7 @@ import { toast } from "sonner";
 import { ConsultationData } from "@/types/diagnosis";
 import { getOrCreateUserId } from "@/lib/utils";
 import { saveDashboardHistory } from "@/lib/local-dashboard-cache";
+import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
 
 const STEP_FIELDS = {
   1: [
@@ -58,7 +57,7 @@ export function DiagnosisWizard() {
     },
   });
 
-  const { handleSubmit, trigger, clearErrors, resetField } = methods;
+  const { handleSubmit, trigger, clearErrors } = methods;
 
   const nextStep = async () => {
     const fieldsToValidate = STEP_FIELDS[step as keyof typeof STEP_FIELDS];
@@ -87,7 +86,7 @@ export function DiagnosisWizard() {
       );
       return;
     }
-    
+
     setIsSubmitting(true);
     const toastId = toast.loading("Menganalisis kesehatan bisnis Anda...");
 
@@ -117,11 +116,13 @@ export function DiagnosisWizard() {
         createdAt: new Date().toISOString(),
       });
 
-      toast.success("Diagnosis selesai diproses oleh Dokter AI!", { id: toastId });
+      toast.success("Diagnosis selesai diproses oleh Dokter AI!", {
+        id: toastId,
+      });
       router.push(`/result?id=${result.id}`);
     } catch (error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Terjadi kesalahan saat melakukan diagnosis.";
+      console.error("Diagnosis Wizard Error:", error);
+      const message = getUserFriendlyErrorMessage(error);
       toast.error(message, { id: toastId });
     } finally {
       setIsSubmitting(false);

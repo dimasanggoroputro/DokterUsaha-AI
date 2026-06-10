@@ -7,16 +7,9 @@ import {
   ArrowRight,
   Sparkles,
   Heart,
-  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout/PageContainer";
 
 const consultationSteps = [
@@ -191,7 +184,7 @@ export default function HomePage() {
             <Card key={idx} className="border-border/40 bg-muted/20">
               <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
                 <p className="text-xs italic text-muted-foreground/90 leading-relaxed font-serif">
-                  "{tc.quote}"
+                  &quot;{tc.quote}&quot;
                 </p>
                 <div className="flex items-center gap-2">
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary-foreground">
