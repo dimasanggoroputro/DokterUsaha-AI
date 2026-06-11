@@ -22,7 +22,7 @@ export function PageContainer({
   return (
     <main
       className={cn(
-        "mx-auto w-full flex-1 px-4 py-6 sm:px-6 sm:py-8",
+        "mx-auto w-full flex-1 px-4 pt-6 pb-20 sm:px-6 sm:py-8",
         maxWidthClasses[maxWidth],
         className
       )}

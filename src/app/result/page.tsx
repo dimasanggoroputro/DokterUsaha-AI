@@ -16,6 +16,11 @@ import {
   CheckCircle2,
   ShieldAlert,
   WifiOff,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  NotepadText,
+  Rocket,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +40,7 @@ import { DiagnosisConfidence } from "@/components/diagnosis/DiagnosisConfidence"
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
 import { getDiagnosisById, getDiagnosesByUserId } from "@/lib/db-service";
 import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
+import { cn } from "@/lib/utils";
 
 const urgencyConfig = {
   rendah: {
@@ -58,6 +64,55 @@ const urgencyConfig = {
       "bg-destructive/20 text-destructive border border-destructive-border/20 font-bold",
   },
 };
+
+interface CollapsibleSectionProps {
+  title: string;
+  description?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+function CollapsibleSection({
+  title,
+  description,
+  icon: Icon,
+  children,
+  defaultOpen = false,
+}: CollapsibleSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <Card className="border-border/50 overflow-hidden bg-card">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-4 text-left font-bold transition-colors hover:bg-secondary/5"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/20 text-[#002d54] border border-[#a5d6fa]/30">
+            <Icon className="size-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-foreground">{title}</h3>
+            {description && (
+              <p className="text-[10px] font-normal text-muted-foreground mt-0.5">{description}</p>
+            )}
+          </div>
+        </div>
+        {isOpen ? (
+          <ChevronUp className="size-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="size-4 text-muted-foreground" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="border-t border-border/40 p-4 bg-card/30 animate-in fade-in duration-200">
+          {children}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function ResultPageContent() {
   const [consultation, setConsultation] = useState<ConsultationData | null>(
@@ -259,250 +314,246 @@ function ResultPageContent() {
           quality={result.dataQuality}
         />
 
-        {/* Prioritas 48 Jam Kedepan */}
-        <Card className="border-destructive-border/30 bg-destructive/5 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold text-destructive">
-              ⚡ Prioritas 48 Jam Kedepan
+        {/* PRIORITAS 4 - Quick Summary Card */}
+        <Card className="border-[#A5D6FA]/30 bg-primary/5 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-[#002d54] flex items-center gap-1.5">
+              <NotepadText className="w-4 h-4" /> Kesimpulan Singkat (10-Second Summary)
             </CardTitle>
-            <CardDescription className="text-xs">
-              Fokus pada langkah berikut terlebih dahulu sebelum menjalankan
-              seluruh rencana aksi.
-            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {result.recommendations.slice(0, 3).map((item, index) => (
-              <div
-                key={index}
-                className="flex gap-3 rounded-lg border border-destructive-border/20 bg-card p-3 shadow-sm"
-              >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive text-xs font-bold text-white shadow-sm">
-                  {index + 1}
-                </div>
-                <p className="text-xs leading-relaxed text-foreground">
-                  {item}
-                </p>
+          <CardContent className="grid gap-3 text-xs pt-1">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-muted-foreground">Kondisi Usaha:</span>
+                <span className={cn(
+                  "font-bold",
+                  result.healthStatus === "sehat" ? "text-success-foreground" : result.healthStatus === "perlu-perhatian" ? "text-warning-foreground" : "text-destructive"
+                )}>
+                  {result.healthStatus === "sehat" ? "BUGAR (SEHAT)" : result.healthStatus === "perlu-perhatian" ? "RAWAT JALAN (PERLU PERHATIAN)" : "GAWAT DARURAT (KRITIS)"}
+                </span>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Verdiksi Klinis */}
-        <Card className="border-primary-border/40 bg-primary/10 relative overflow-hidden shadow-sm">
-          <div className="absolute top-0 right-0 w-24 h-24 -mt-6 -mr-6 rounded-full border-4 border-primary/10 flex items-center justify-center rotate-12 pointer-events-none select-none">
-            <span className="text-[10px] font-black text-primary-foreground/15 uppercase tracking-widest">
-              DIAGNOSED
-            </span>
-          </div>
-          <CardHeader className="pb-3 border-b border-dashed border-primary-border/30">
-            <div className="flex items-center gap-2">
-              <Stethoscope className="size-5 text-primary-foreground" />
-              <CardTitle className="text-sm font-bold uppercase tracking-wider text-primary-foreground">
-                Verdiksi Klinis Dokter Bisnis
-              </CardTitle>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-muted-foreground">Keyakinan Diagnosis:</span>
+                <span className="font-bold text-foreground">{result.confidenceScore}%</span>
+              </div>
             </div>
-            <CardDescription className="text-xs text-primary-foreground/70">
-              Catatan diagnosa medis profesional atas keluhan usaha Anda
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4 text-sm leading-relaxed font-serif text-primary-foreground italic">
-            &quot;{result.verdict}&quot;
-            <div className="mt-4 flex items-center justify-between not-italic font-sans text-xs text-primary-foreground/80">
-              <span className="font-bold">Dr. DokterUsaha AI</span>
-              <span className="border-t border-primary-foreground/30 pt-1 px-4 text-center">
-                Tanda Tangan Digital AI
+            
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground">Masalah Utama:</span>
+              <span className="font-semibold text-foreground leading-relaxed">
+                &quot;{consultation?.mainProblem || "Tidak dispesifikasikan"}&quot;
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-0.5 border-t border-border/40 pt-2">
+              <span className="text-[10px] text-muted-foreground">Langkah Pertama Pemulihan:</span>
+              <span className="font-bold text-primary-foreground leading-relaxed">
+                <Rocket className="inline-block w-4 h-4 mr-1" /> {result.recommendations[0] || "Perjelas masalah utama usaha"}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Summary */}
-        <Card className="border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-bold">
-              <FileText className="size-4 text-muted-foreground" />
-              Ringkasan Analisis Keluhan
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {result.summary}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Insights */}
-        {result.insights && result.insights.length > 0 && (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2 text-sm font-bold text-secondary-foreground">
-                <Lightbulb className="size-4 text-secondary-foreground" />
-                <span>Insight DokterUsaha AI</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Temuan penting yang mungkin belum Anda sadari dari kondisi usaha
-                Anda.
-              </p>
-            </div>
-            <div className="grid gap-2">
-              {result.insights.map((insight, index) => (
-                <Card
-                  key={index}
-                  className="border-secondary-border/30 bg-secondary/15 shadow-sm"
-                >
-                  <CardContent className="p-3 text-xs leading-relaxed text-foreground/90">
-                    <span className="font-extrabold text-secondary-foreground mr-1.5">
-                      Analisis #{index + 1}:
+        {/* PRIORITAS 3 - Accordion Section wrappers */}
+        <div className="flex flex-col gap-4">
+          {/* Section 1: Ringkasan Diagnosis */}
+          <CollapsibleSection
+            title="Ringkasan Diagnosis"
+            description="Diagnosa medis profesional & intisari analisis keluhan usaha Anda"
+            icon={FileText}
+            defaultOpen={true}
+          >
+            <div className="flex flex-col gap-4">
+              {/* Verdiksi Klinis */}
+              <Card className="border-primary-border/40 bg-primary/10 relative overflow-hidden shadow-sm">
+                <div className="absolute top-0 right-0 w-24 h-24 -mt-6 -mr-6 rounded-full border-4 border-primary/10 flex items-center justify-center rotate-12 pointer-events-none select-none">
+                  <span className="text-[10px] font-black text-primary-foreground/15 uppercase tracking-widest">
+                    DIAGNOSED
+                  </span>
+                </div>
+                <CardHeader className="pb-3 border-b border-dashed border-primary-border/30">
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="size-5 text-primary-foreground" />
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-primary-foreground">
+                      Verdiksi Klinis Dokter Bisnis
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-xs text-primary-foreground/70">
+                    Catatan diagnosa medis profesional atas keluhan usaha Anda
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 text-sm leading-relaxed font-serif text-primary-foreground italic">
+                  &quot;{result.verdict}&quot;
+                  <div className="mt-4 flex items-center justify-between not-italic font-sans text-xs text-primary-foreground/80">
+                    <span className="font-bold">Dr. DokterUsaha AI</span>
+                    <span className="border-t border-primary-foreground/30 pt-1 px-4 text-center">
+                      Tanda Tangan Digital AI
                     </span>
-                    {insight}
-                  </CardContent>
-                </Card>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Summary text */}
+              <div className="text-xs leading-relaxed text-muted-foreground p-1">
+                {result.summary}
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* Section 2: Penyebab Potensial */}
+          <CollapsibleSection
+            title="Penyebab Potensial (Akar Masalah)"
+            description="Faktor-faktor yang teridentifikasi memperburuk kesehatan usaha Anda"
+            icon={AlertTriangle}
+            defaultOpen={false}
+          >
+            <div className="grid gap-2 pt-1">
+              {result.causes.map((cause, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-2.5 rounded-lg border border-warning-border/10 bg-warning/10 p-3 text-xs"
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-warning/20 text-[10px] font-bold text-warning-foreground">
+                    {index + 1}
+                  </span>
+                  <span className="pt-0.5 leading-relaxed text-foreground/80">
+                    {cause}
+                  </span>
+                </div>
               ))}
             </div>
-          </div>
-        )}
+          </CollapsibleSection>
 
-        {/* Strengths */}
-        {result.strengths && result.strengths.length > 0 && (
-          <Card className="border-success-border/30 bg-success/5 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-bold text-success-foreground">
-                <CheckCircle2 className="size-4 text-success-foreground" />
-                Kekuatan Usaha Anda
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Aspek positif dan potensi terkuat dari bisnis Anda saat ini
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              {result.strengths.map((strength, index) => (
+          {/* Section 3: Insight DokterUsaha AI */}
+          {result.insights && result.insights.length > 0 && (
+            <CollapsibleSection
+              title="Insight DokterUsaha AI"
+              description="Temuan penting dari operasional usaha Anda yang butuh sorotan"
+              icon={Lightbulb}
+              defaultOpen={false}
+            >
+              <div className="grid gap-2 pt-1">
+                {result.insights.map((insight, index) => (
+                  <Card
+                    key={index}
+                    className="border-secondary-border/30 bg-secondary/15 shadow-sm"
+                  >
+                    <CardContent className="p-3 text-xs leading-relaxed text-foreground/90">
+                      <span className="font-extrabold text-secondary-foreground mr-1.5">
+                        Analisis #{index + 1}:
+                      </span>
+                      {insight}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CollapsibleSection>
+          )}
+
+          {/* Section 4: Kekuatan Usaha */}
+          {result.strengths && result.strengths.length > 0 && (
+            <CollapsibleSection
+              title="Kekuatan Usaha Anda"
+              description="Aspek positif dan potensi terkuat dari bisnis Anda saat ini"
+              icon={CheckCircle2}
+              defaultOpen={false}
+            >
+              <div className="grid gap-2 pt-1">
+                {result.strengths.map((strength, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-2.5 rounded-lg border border-success-border/10 bg-success/10 p-3 text-xs"
+                  >
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success/20 text-[10px] font-bold text-success-foreground">
+                      ✓
+                    </span>
+                    <span className="pt-0.5 leading-relaxed text-foreground/80">
+                      {strength}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          )}
+
+          {/* Section 5: Rekomendasi Terapi */}
+          <CollapsibleSection
+            title="Rekomendasi Terapi (Resep Dokter)"
+            description="Tindakan penyembuhan langsung yang disarankan untuk diterapkan"
+            icon={Lightbulb}
+            defaultOpen={false}
+          >
+            <div className="grid gap-2 pt-1">
+              {result.recommendations.map((rec, index) => (
                 <div
                   key={index}
                   className="flex items-start gap-2.5 rounded-lg border border-success-border/10 bg-success/10 p-3 text-xs"
                 >
                   <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success/20 text-[10px] font-bold text-success-foreground">
-                    ✓
+                    {index + 1}
                   </span>
                   <span className="pt-0.5 leading-relaxed text-foreground/80">
-                    {strength}
+                    {rec}
                   </span>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CollapsibleSection>
 
-        {/* Causes */}
-        <Card className="border-warning-border/30 bg-warning/5 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-bold text-warning-foreground">
-              <AlertTriangle className="size-4 text-warning-foreground" />
-              Penyebab Potensial (Akar Masalah)
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Faktor-faktor yang teridentifikasi memperburuk kesehatan usaha
-              Anda
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            {result.causes.map((cause, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-2.5 rounded-lg border border-warning-border/10 bg-warning/10 p-3 text-xs"
-              >
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-warning/20 text-[10px] font-bold text-warning-foreground">
-                  {index + 1}
-                </span>
-                <span className="pt-0.5 leading-relaxed text-foreground/80">
-                  {cause}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+          {/* Section 6: Action Plan Mingguan */}
+          <CollapsibleSection
+            title="Rencana Aksi Mingguan"
+            description="Panduan resep langkah-demi-langkah per minggu untuk pemulihan usaha"
+            icon={Calendar}
+            defaultOpen={false}
+          >
+            <ActionPlanTimeline timeline={result.actionPlan} diagnosisId={id || ""} />
+          </CollapsibleSection>
 
-        {/* Recommendations */}
-        <Card className="border-success-border/30 bg-success/5 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-bold text-success-foreground">
-              <Lightbulb className="size-4 text-success-foreground" />
-              Rekomendasi Terapi (Resep Dokter)
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Tindakan penyembuhan langsung yang disarankan untuk diterapkan
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            {result.recommendations.map((rec, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-2.5 rounded-lg border border-success-border/10 bg-success/10 p-3 text-xs"
-              >
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success/20 text-[10px] font-bold text-success-foreground">
-                  {index + 1}
-                </span>
-                <span className="pt-0.5 leading-relaxed text-foreground/80">
-                  {rec}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Batch 3 — Comparison Score */}
-        {previousResult &&
-          (() => {
-            const scoreDiff = result.healthScore - previousResult.healthScore;
-            return (
-              <Card className="border-primary/20">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                    <Activity className="size-4 text-primary" />
-                    Perbandingan Pemeriksaan
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Perkembangan skor kesehatan usaha Anda dibanding pemeriksaan
-                    sebelumnya
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-3 gap-4 text-center">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">
-                      Sebelumnya
-                    </span>
-                    <span className="text-2xl font-bold text-muted-foreground">
-                      {previousResult.healthScore}
-                    </span>
+          {/* Section 7: Perbandingan Pemeriksaan */}
+          {previousResult && (
+            <CollapsibleSection
+              title="Perbandingan Pemeriksaan"
+              description="Perkembangan skor kesehatan usaha dibanding check-up sebelumnya"
+              icon={Activity}
+              defaultOpen={false}
+            >
+              {(() => {
+                const scoreDiff = result.healthScore - previousResult.healthScore;
+                return (
+                  <div className="grid grid-cols-3 gap-4 text-center pt-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Sebelumnya</span>
+                      <span className="text-2xl font-bold text-muted-foreground">
+                        {previousResult.healthScore}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1 items-center justify-center">
+                      <span
+                        className={`text-2xl font-black ${scoreDiff > 0 ? "text-success-foreground" : scoreDiff < 0 ? "text-destructive" : "text-muted-foreground"}`}
+                      >
+                        {scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        {scoreDiff > 0
+                          ? "↑ Membaik"
+                          : scoreDiff < 0
+                            ? "↓ Menurun"
+                            : "Tidak berubah"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Sekarang</span>
+                      <span className="text-2xl font-bold text-primary-foreground">
+                        {result.healthScore}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1 items-center justify-center">
-                    <span
-                      className={`text-2xl font-black ${scoreDiff > 0 ? "text-success-foreground" : scoreDiff < 0 ? "text-destructive" : "text-muted-foreground"}`}
-                    >
-                      {scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-semibold">
-                      {scoreDiff > 0
-                        ? "↑ Membaik"
-                        : scoreDiff < 0
-                          ? "↓ Menurun"
-                          : "Tidak berubah"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">
-                      Sekarang
-                    </span>
-                    <span className="text-2xl font-bold text-primary">
-                      {result.healthScore}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })()}
-
-        {/* Timeline Action Plan */}
-        <ActionPlanTimeline timeline={result.actionPlan} />
+                );
+              })()}
+            </CollapsibleSection>
+          )}
+        </div>
 
         <Separator />
 
