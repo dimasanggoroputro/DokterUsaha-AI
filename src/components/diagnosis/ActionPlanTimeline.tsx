@@ -11,33 +11,45 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { syncProgressAction } from "@/actions/syncProgress";
 
 interface ActionPlanTimelineProps {
   timeline: ActionPlanWeek[];
   diagnosisId: string;
+  initialCheckedTasks?: Record<string, boolean>;
 }
 
-export function ActionPlanTimeline({ timeline, diagnosisId }: ActionPlanTimelineProps) {
-  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
+export function ActionPlanTimeline({
+  timeline,
+  diagnosisId,
+  initialCheckedTasks,
+}: ActionPlanTimelineProps) {
+  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>(
+    initialCheckedTasks || {}
+  );
 
   const storageKey = `dokterusaha_ap_progress_${diagnosisId}`;
 
-  // Load progress from localStorage on mount
+  // Merge local storage fallback on mount
   useEffect(() => {
     if (typeof window !== "undefined" && diagnosisId) {
       try {
         const saved = localStorage.getItem(storageKey);
         if (saved) {
-          setCheckedTasks(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setCheckedTasks((prev) => ({
+            ...parsed,
+            ...prev, // initialCheckedTasks from DB takes priority
+          }));
         }
       } catch (err) {
-        console.warn("Failed to load action plan progress:", err);
+        console.warn("Failed to load local action plan progress:", err);
       }
     }
   }, [diagnosisId, storageKey]);
 
-  // Toggle task check state and save to localStorage
-  const toggleTask = (weekNum: number, taskIdx: number) => {
+  // Toggle task check state and save to local storage + Supabase
+  const toggleTask = async (weekNum: number, taskIdx: number) => {
     const taskKey = `${weekNum}_${taskIdx}`;
     const updated = {
       ...checkedTasks,
@@ -45,12 +57,20 @@ export function ActionPlanTimeline({ timeline, diagnosisId }: ActionPlanTimeline
     };
     setCheckedTasks(updated);
 
+    // 1. Save to local storage
     if (typeof window !== "undefined" && diagnosisId) {
       try {
         localStorage.setItem(storageKey, JSON.stringify(updated));
       } catch (err) {
-        console.warn("Failed to save action plan progress:", err);
+        console.warn("Failed to save local progress:", err);
       }
+    }
+
+    // 2. Sync online to Supabase
+    try {
+      await syncProgressAction(diagnosisId, updated);
+    } catch (err) {
+      console.warn("Supabase progress sync failed (possibly offline):", err);
     }
   };
 

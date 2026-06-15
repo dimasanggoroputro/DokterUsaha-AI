@@ -27,6 +27,7 @@ const navLinks = [
 const mobileNavLinks = [
   { href: "/", label: "Beranda", icon: Home },
   { href: "/diagnosis", label: "Konsultasi", icon: ClipboardList },
+  { href: "/result", label: "Resep Solusi", icon: Stethoscope },
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/dashboard#history", label: "Riwayat", icon: Clock },
 ];

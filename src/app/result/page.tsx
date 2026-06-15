@@ -21,6 +21,8 @@ import {
   Calendar,
   NotepadText,
   Rocket,
+  Printer,
+  Share2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,7 +42,16 @@ import { DiagnosisConfidence } from "@/components/diagnosis/DiagnosisConfidence"
 import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
 import { getDiagnosisById, getDiagnosesByUserId } from "@/lib/db-service";
 import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
+import {
+  saveFullDiagnosisToCache,
+  getFullDiagnosisFromCache,
+} from "@/lib/offline-diagnosis-cache";
+import { followUpChatAction } from "@/actions/followUpChat";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { Send, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 const urgencyConfig = {
   rendah: {
@@ -95,7 +106,9 @@ function CollapsibleSection({
           <div>
             <h3 className="text-sm font-bold text-foreground">{title}</h3>
             {description && (
-              <p className="text-[10px] font-normal text-muted-foreground mt-0.5">{description}</p>
+              <p className="text-[10px] font-normal text-muted-foreground mt-0.5">
+                {description}
+              </p>
             )}
           </div>
         </div>
@@ -125,6 +138,11 @@ function ResultPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isOfflineError, setIsOfflineError] = useState(false);
+  const [chatMessages, setChatMessages] = useState<
+    { role: "user" | "model"; content: string }[]
+  >([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isSendingChat, setIsSendingChat] = useState(false);
 
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
@@ -146,6 +164,13 @@ function ResultPageContent() {
           setConsultation(data.consultationData);
           setResult(data.diagnosisResult);
 
+          // Save details offline in local cache
+          saveFullDiagnosisToCache(
+            id,
+            data.consultationData,
+            data.diagnosisResult,
+          );
+
           // Get user diagnoses to find the previous one for comparison
           if (data.user_id) {
             const history = await getDiagnosesByUserId(data.user_id);
@@ -157,15 +182,30 @@ function ResultPageContent() {
         }
       } catch (err) {
         console.error("Fetch diagnosis error:", err);
-        const message = getUserFriendlyErrorMessage(err);
-        const isOffline =
-          (typeof navigator !== "undefined" && !navigator.onLine) ||
-          message ===
-            "Tidak ada koneksi internet. Periksa jaringan Anda lalu coba lagi.";
-        if (isOffline) {
-          setIsOfflineError(true);
+
+        // Fallback to local offline cache
+        const cached = getFullDiagnosisFromCache(id);
+        if (cached) {
+          setConsultation(cached.consultationData);
+          setResult(cached.diagnosisResult);
+          setIsOfflineError(false);
+          toast.info(
+            "Menampilkan rekam medis dari penyimpanan lokal (Luring).",
+            {
+              duration: 4000,
+            },
+          );
         } else {
-          setErrorMsg(message);
+          const message = getUserFriendlyErrorMessage(err);
+          const isOffline =
+            (typeof navigator !== "undefined" && !navigator.onLine) ||
+            message ===
+              "Tidak ada koneksi internet. Periksa jaringan Anda lalu coba lagi.";
+          if (isOffline) {
+            setIsOfflineError(true);
+          } else {
+            setErrorMsg(message);
+          }
         }
       } finally {
         setIsLoading(false);
@@ -174,6 +214,43 @@ function ResultPageContent() {
 
     loadDiagnosis();
   }, [id]);
+
+  const handleSendChatMessage = async (msgText: string) => {
+    if (!msgText.trim() || isSendingChat || !id) return;
+
+    const newUserMessage = { role: "user" as const, content: msgText };
+    const updatedHistory = [...chatMessages, newUserMessage];
+
+    setChatMessages(updatedHistory);
+    setChatInput("");
+    setIsSendingChat(true);
+
+    try {
+      const reply = await followUpChatAction(id, msgText, chatMessages);
+      setChatMessages([
+        ...updatedHistory,
+        { role: "model" as const, content: reply },
+      ]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal mendapatkan balasan dari AI.");
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
+
+  const shareToWhatsApp = () => {
+    if (!result || !consultation) return;
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const text = `*Hasil Pemeriksaan DokterUsaha AI* 🩺\n\n*Nama Usaha:* ${consultation.businessName}\n*Skor Kesehatan:* ${result.healthScore}/100 (${result.healthStatus === "sehat" ? "SEHAT/BUGAR" : result.healthStatus === "perlu-perhatian" ? "RAWAT JALAN" : "GAWAT DARURAT"})\n*Vonis Utama:* ${result.verdict}\n\n*Langkah Pertama Pemulihan:*\n${result.recommendations[0] || "Perjelas masalah utama usaha"}\n\nBaca rekomendasi resep solusi lengkap & rencana aksi 3 minggu Anda secara gratis di:\n${url}`;
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, "_blank");
+  };
+
+  const handlePrintPDF = () => {
+    window.print();
+  };
 
   if (isLoading) {
     return (
@@ -278,8 +355,21 @@ function ResultPageContent() {
   return (
     <PageContainer maxWidth="sm">
       <div className="flex flex-col gap-6">
+        {/* Header Rekam Medis (Print-Only) */}
+        <div className="hidden print:flex flex-col items-center gap-1 border-b-2 border-foreground pb-3 mb-2 text-center w-full">
+          <h1 className="text-lg font-bold uppercase tracking-wide text-foreground">
+            RESEP SOLUSI & REKAM MEDIS DOKTERUSAHA AI
+          </h1>
+          <p className="text-[10px] text-muted-foreground font-medium">
+            Sistem Diagnosis Kesehatan & Rencana Aksi Pemulihan UMKM
+          </p>
+          <div className="text-[9px] text-muted-foreground mt-1">
+            Dicetak secara resmi via Aplikasi DokterUsaha AI
+          </div>
+        </div>
+
         {/* Premium Title Header Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-primary/20 p-6 text-slate-900 shadow-sm border border-[#A5D6FA]/30">
+        <div className="relative overflow-hidden rounded-2xl bg-primary/20 p-6 text-slate-900 shadow-sm border border-[#A5D6FA]/30 print:hidden">
           <div className="absolute right-0 top-0 -mt-4 -mr-4 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
           <div className="relative flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -318,37 +408,60 @@ function ResultPageContent() {
         <Card className="border-[#A5D6FA]/30 bg-primary/5 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-[#002d54] flex items-center gap-1.5">
-              <NotepadText className="w-4 h-4" /> Kesimpulan Singkat (10-Second Summary)
+              <NotepadText className="w-4 h-4" /> Kesimpulan Singkat (10-Second
+              Summary)
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-xs pt-1">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-muted-foreground">Kondisi Usaha:</span>
-                <span className={cn(
-                  "font-bold",
-                  result.healthStatus === "sehat" ? "text-success-foreground" : result.healthStatus === "perlu-perhatian" ? "text-warning-foreground" : "text-destructive"
-                )}>
-                  {result.healthStatus === "sehat" ? "BUGAR (SEHAT)" : result.healthStatus === "perlu-perhatian" ? "RAWAT JALAN (PERLU PERHATIAN)" : "GAWAT DARURAT (KRITIS)"}
+                <span className="text-[10px] text-muted-foreground">
+                  Kondisi Usaha:
+                </span>
+                <span
+                  className={cn(
+                    "font-bold",
+                    result.healthStatus === "sehat"
+                      ? "text-success-foreground"
+                      : result.healthStatus === "perlu-perhatian"
+                        ? "text-warning-foreground"
+                        : "text-destructive",
+                  )}
+                >
+                  {result.healthStatus === "sehat"
+                    ? "BUGAR (SEHAT)"
+                    : result.healthStatus === "perlu-perhatian"
+                      ? "RAWAT JALAN (PERLU PERHATIAN)"
+                      : "GAWAT DARURAT (KRITIS)"}
                 </span>
               </div>
               <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-muted-foreground">Keyakinan Diagnosis:</span>
-                <span className="font-bold text-foreground">{result.confidenceScore}%</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Keyakinan Diagnosis:
+                </span>
+                <span className="font-bold text-foreground">
+                  {result.confidenceScore}%
+                </span>
               </div>
             </div>
-            
+
             <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] text-muted-foreground">Masalah Utama:</span>
+              <span className="text-[10px] text-muted-foreground">
+                Masalah Utama:
+              </span>
               <span className="font-semibold text-foreground leading-relaxed">
-                &quot;{consultation?.mainProblem || "Tidak dispesifikasikan"}&quot;
+                &quot;{consultation?.mainProblem || "Tidak dispesifikasikan"}
+                &quot;
               </span>
             </div>
 
             <div className="flex flex-col gap-0.5 border-t border-border/40 pt-2">
-              <span className="text-[10px] text-muted-foreground">Langkah Pertama Pemulihan:</span>
+              <span className="text-[10px] text-muted-foreground">
+                Langkah Pertama Pemulihan:
+              </span>
               <span className="font-bold text-primary-foreground leading-relaxed">
-                <Rocket className="inline-block w-4 h-4 mr-1" /> {result.recommendations[0] || "Perjelas masalah utama usaha"}
+                <Rocket className="inline-block w-4 h-4 mr-1" />{" "}
+                {result.recommendations[0] || "Perjelas masalah utama usaha"}
               </span>
             </div>
           </CardContent>
@@ -507,7 +620,11 @@ function ResultPageContent() {
             icon={Calendar}
             defaultOpen={false}
           >
-            <ActionPlanTimeline timeline={result.actionPlan} diagnosisId={id || ""} />
+            <ActionPlanTimeline
+              timeline={result.actionPlan}
+              diagnosisId={id || ""}
+              initialCheckedTasks={result.checked_tasks}
+            />
           </CollapsibleSection>
 
           {/* Section 7: Perbandingan Pemeriksaan */}
@@ -519,11 +636,14 @@ function ResultPageContent() {
               defaultOpen={false}
             >
               {(() => {
-                const scoreDiff = result.healthScore - previousResult.healthScore;
+                const scoreDiff =
+                  result.healthScore - previousResult.healthScore;
                 return (
                   <div className="grid grid-cols-3 gap-4 text-center pt-2">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Sebelumnya</span>
+                      <span className="text-xs text-muted-foreground">
+                        Sebelumnya
+                      </span>
                       <span className="text-2xl font-bold text-muted-foreground">
                         {previousResult.healthScore}
                       </span>
@@ -543,7 +663,9 @@ function ResultPageContent() {
                       </span>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Sekarang</span>
+                      <span className="text-xs text-muted-foreground">
+                        Sekarang
+                      </span>
                       <span className="text-2xl font-bold text-primary-foreground">
                         {result.healthScore}
                       </span>
@@ -555,10 +677,188 @@ function ResultPageContent() {
           )}
         </div>
 
+        {/* Chatbot UI - Follow up Chat AI */}
+        <Card className="border-[#A5D6FA]/30 bg-gradient-to-br from-card to-primary/[0.02] shadow-sm overflow-hidden print:hidden">
+          <CardHeader className="pb-3 border-b border-border/40">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 text-[#002d54]">
+              <MessageSquare className="size-4 text-primary" />
+              Tanya DokterUsaha AI (Konsultasi Lanjutan)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Diskusikan hasil diagnosis di atas atau tanyakan langkah konkret
+              pemulihan usaha Anda.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 flex flex-col gap-4">
+            {/* Chat message list */}
+            <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1 text-xs">
+              {chatMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground gap-2">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-[#002d54]">
+                    <MessageSquare className="size-5" />
+                  </div>
+                  <p className="max-w-[280px] leading-relaxed text-[11px]">
+                    Halo! Saya DokterUsaha AI. Ada rekomendasi yang kurang jelas
+                    atau ingin ditanyakan lebih dalam? Silakan ketik atau
+                    gunakan tombol suara.
+                  </p>
+                </div>
+              ) : (
+                chatMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "flex flex-col max-w-[85%] rounded-2xl px-3.5 py-2.5 leading-relaxed text-xs",
+                      msg.role === "user"
+                        ? "self-end bg-[#002d54] text-white rounded-tr-none"
+                        : "self-start bg-secondary/80 text-foreground rounded-tl-none border border-border/40",
+                    )}
+                  >
+                    <span className="font-semibold text-[9px] uppercase tracking-wider mb-1 opacity-70">
+                      {msg.role === "user" ? "Anda" : "DokterUsaha AI"}
+                    </span>
+                    {msg.role === "model" ? (
+                      <div className="prose prose-xs max-w-none text-xs leading-relaxed whitespace-pre-wrap">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    )}
+                  </div>
+                ))
+              )}
+
+              {isSendingChat && (
+                <div className="self-start flex items-center gap-2 bg-secondary/50 text-muted-foreground rounded-2xl rounded-tl-none px-3.5 py-2.5 border border-border/30 animate-pulse">
+                  <Activity className="size-3.5 animate-spin text-primary" />
+                  <span>Dokter sedang menganalisis pertanyaan...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Quick action chips for questions */}
+            <div className="flex flex-col gap-1.5 border-t border-border/40 pt-3">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Pertanyaan Rekomendasi:
+              </span>
+              <div className="relative">
+              <div
+                className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1 pr-8 [&::-webkit-scrollbar]:hidden cursor-grab active:cursor-grabbing select-none"
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const fade = el.nextElementSibling as HTMLElement | null;
+                  if (fade) {
+                    fade.style.opacity =
+                      el.scrollLeft + el.clientWidth < el.scrollWidth - 5 ? "1" : "0";
+                  }
+                }}
+                onMouseDown={(e) => {
+                  const el = e.currentTarget;
+                  const startX = e.pageX - el.offsetLeft;
+                  const scrollLeft = el.scrollLeft;
+
+                  const onMouseMove = (moveEvent: MouseEvent) => {
+                    const x = moveEvent.pageX - el.offsetLeft;
+                    el.scrollLeft = scrollLeft - (x - startX);
+                  };
+
+                  const onMouseUp = () => {
+                    document.removeEventListener("mousemove", onMouseMove);
+                    document.removeEventListener("mouseup", onMouseUp);
+                  };
+
+                  document.addEventListener("mousemove", onMouseMove);
+                  document.addEventListener("mouseup", onMouseUp);
+                }}
+
+                >
+                  {[
+                    "Bagaimana cara meningkatkan pelanggan?",
+                    "Bagaimana membuat promosi WhatsApp?",
+                    "Langkah pertama memperbaiki arus kas?",
+                    "Cara jalankan rencana aksi minggu ke-1?",
+                  ].map((q, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleSendChatMessage(q)}
+                      disabled={isSendingChat}
+                      className="shrink-0 text-[10px] font-medium bg-secondary hover:bg-secondary/80 text-foreground border border-border/40 rounded-full px-2.5 py-1 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Gradient kanan — hilang otomatis saat scroll mentok */}
+                <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent transition-opacity duration-200" />
+              </div>
+            </div>
+            
+            {/* Message input bar */}
+            <div className="flex items-center gap-2 border border-border/50 rounded-full bg-background px-3 py-1.5 shadow-inner">
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendChatMessage(chatInput);
+                  }
+                }}
+                rows={1}
+                placeholder="Tanya dokter usaha..."
+                className="flex-1 max-h-16 resize-none bg-transparent py-1 text-xs outline-none border-none placeholder:text-muted-foreground/60"
+                disabled={isSendingChat}
+              />
+              <VoiceInputButton
+                onTranscript={(text) =>
+                  setChatInput((prev) => prev + (prev ? " " : "") + text)
+                }
+                className="size-7 border-none shadow-none bg-transparent hover:bg-muted"
+              />
+              <Button
+                type="button"
+                size="icon-sm"
+                onClick={() => handleSendChatMessage(chatInput)}
+                disabled={isSendingChat || !chatInput.trim()}
+                className="rounded-full bg-[#002d54] text-white hover:bg-[#002d54]/95 shrink-0 size-7"
+              >
+                <Send className="size-3" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <Separator />
 
+        {/* Actions (Share & PDF) */}
+        <div className="flex flex-row gap-2 print:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={shareToWhatsApp}
+            className="flex-1 gap-2 text-xs text-success-foreground border-success-border/30 hover:bg-success/10 cursor-pointer"
+          >
+            <Share2 className="size-4 shrink-0 text-success-foreground" />
+            <span className="truncate">WhatsApp</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handlePrintPDF}
+            className="flex-1 gap-2 text-xs text-primary-foreground border-primary-border/30 hover:bg-primary/10 cursor-pointer"
+          >
+            <Printer className="size-4 shrink-0" />
+            <span className="truncate">PDF</span>
+          </Button>
+        </div>
+
         {/* Navigation */}
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-col gap-3 sm:flex-row print:hidden">
           <Link href="/diagnosis" className="flex-1">
             <Button
               variant="outline"
@@ -577,7 +877,7 @@ function ResultPageContent() {
           </Link>
         </div>
 
-        <Link href="/" className="mx-auto mt-2">
+        <Link href="/" className="mx-auto mt-2 print:hidden">
           <Button
             variant="ghost"
             size="sm"

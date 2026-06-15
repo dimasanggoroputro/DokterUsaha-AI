@@ -59,6 +59,7 @@ export function mapRowToDiagnosis(row: DiagnosisRow): {
         ? res.recommendations
         : [],
       actionPlan: Array.isArray(res?.actionPlan) ? res.actionPlan : [],
+      checked_tasks: res?.checked_tasks || {},
       createdAt: formattedDate,
     },
   };

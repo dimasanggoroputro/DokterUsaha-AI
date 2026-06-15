@@ -9,6 +9,8 @@ import {
   ArrowRight,
   ShieldAlert,
   WifiOff,
+  MoreVertical,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,20 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PageContainer } from "@/components/layout/PageContainer";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getDiagnosesByUserId } from "@/lib/db-service";
 import { getOrCreateUserId, cn } from "@/lib/utils";
 import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
@@ -29,7 +45,13 @@ import {
   getDashboardHistory,
   syncDashboardCache,
   DashboardCacheEntry,
+  deleteDashboardHistoryEntry,
 } from "@/lib/local-dashboard-cache";
+import {
+  saveFullDiagnosisToCache,
+  removeFullDiagnosisFromCache,
+} from "@/lib/offline-diagnosis-cache";
+import { deleteDiagnosisAction } from "@/actions/deleteDiagnosis";
 import { toast } from "sonner";
 import {
   ResponsiveContainer,
@@ -64,12 +86,15 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredItems = useMemo(() => {
     if (filterStatus === "all") return items;
     return items.filter((item) => {
       if (filterStatus === "sehat") return item.healthScore >= 70;
-      if (filterStatus === "perlu-perhatian") return item.healthScore >= 40 && item.healthScore < 70;
+      if (filterStatus === "perlu-perhatian")
+        return item.healthScore >= 40 && item.healthScore < 70;
       if (filterStatus === "kritis") return item.healthScore < 40;
       return true;
     });
@@ -91,6 +116,48 @@ export default function DashboardPage() {
     skor: item.healthScore,
     businessName: item.businessName,
   }));
+
+  const shareToWhatsApp = (item: DashboardItem) => {
+    const url = typeof window !== "undefined" ? `${window.location.origin}/result?id=${item.id}` : "";
+    const statusText =
+      item.healthScore >= 70
+        ? "SEHAT/BUGAR"
+        : item.healthScore >= 40
+          ? "RAWAT JALAN"
+          : "GAWAT DARURAT";
+          
+    const text = `*Hasil Pemeriksaan DokterUsaha AI* 🩺\n\n*Nama Usaha:* ${item.businessName}\n*Skor Kesehatan:* ${item.healthScore}/100 (${statusText})\n\nBaca rekomendasi resep solusi lengkap & rencana aksi 3 minggu Anda secara gratis di:\n${url}`;
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, "_blank");
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!navigator.onLine) {
+      toast.error("Tidak dapat menghapus diagnosis saat offline.");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await deleteDiagnosisAction(id);
+      if (response.success) {
+        deleteDashboardHistoryEntry(id);
+        removeFullDiagnosisFromCache(id);
+
+        setItems((prev) => prev.filter((item) => item.id !== id));
+        toast.success("Rekam medis berhasil dihapus.");
+        setDeleteConfirmId(null);
+      } else {
+        toast.error(response.message || "Gagal menghapus rekam medis.");
+      }
+    } catch (error) {
+      console.error("Gagal menghapus:", error);
+      toast.error("Terjadi kesalahan sistem saat menghapus rekam medis.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -115,6 +182,15 @@ export default function DashboardPage() {
           causes: item.diagnosisResult?.causes,
           recommendations: item.diagnosisResult?.recommendations,
         }));
+
+        // Cache full details offline
+        data.forEach((item) => {
+          saveFullDiagnosisToCache(
+            item.id,
+            item.consultationData,
+            item.diagnosisResult,
+          );
+        });
 
         setItems(mapped);
 
@@ -168,8 +244,6 @@ export default function DashboardPage() {
     (acc, item) => acc + (item.recommendations?.length ?? 0),
     0,
   );
-
-
 
   // Format date helper
   const formatDate = (dateStr: string) => {
@@ -227,7 +301,9 @@ export default function DashboardPage() {
       </PageContainer>
     );
   }
+
   const latestItem = items.length > 0 ? items[0] : null;
+
   return (
     <PageContainer>
       <div className="flex flex-col gap-6">
@@ -243,25 +319,33 @@ export default function DashboardPage() {
               <h1 className="text-xl font-black tracking-tight sm:text-2xl text-[#002D54]">
                 Dashboard Kesehatan UMKM
               </h1>
-              
+
               {/* Score / Status Info */}
               {latestItem ? (
                 <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
-                  <span className="text-[#003647]/80 font-medium">Skor Terakhir:</span>
+                  <span className="text-[#003647]/80 font-medium">
+                    Skor Terakhir:
+                  </span>
                   <span className="font-extrabold bg-[#002D54] text-white px-1.5 py-0.5 rounded text-[10px]">
                     {latestItem.healthScore}/100
                   </span>
                   <span className="text-[#003647]/40">•</span>
                   <span className="text-[#003647]/80 font-medium">Status:</span>
-                  <span className={cn(
-                    "px-1.5 py-0.5 rounded text-[10px] font-bold border",
-                    latestItem.healthScore < 40 
-                      ? "bg-destructive/20 text-destructive border-destructive-border/10" 
-                      : latestItem.healthScore < 70 
-                        ? "bg-warning/20 text-warning-foreground border-warning-border/10" 
-                        : "bg-success/20 text-success-foreground border-success-border/10"
-                  )}>
-                    {latestItem.healthScore < 40 ? "Kritis" : latestItem.healthScore < 70 ? "Perlu Perhatian" : "Sehat"}
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                      latestItem.healthScore < 40
+                        ? "bg-destructive/20 text-destructive border-destructive-border/10"
+                        : latestItem.healthScore < 70
+                          ? "bg-warning/20 text-warning-foreground border-warning-border/10"
+                          : "bg-success/20 text-success-foreground border-success-border/10",
+                    )}
+                  >
+                    {latestItem.healthScore < 40
+                      ? "Kritis"
+                      : latestItem.healthScore < 70
+                        ? "Perlu Perhatian"
+                        : "Sehat"}
                   </span>
                 </div>
               ) : (
@@ -332,17 +416,18 @@ export default function DashboardPage() {
         ) : (
           /* Active Dashboard Content with New Section Order */
           <div className="flex flex-col gap-6">
-            
             {/* 1. Status Saat Ini */}
             {latestItem && (
-              <Card className={cn(
-                "rounded-[24px] border-l-4 shadow-sm bg-gradient-to-br from-card to-secondary/5 overflow-hidden",
-                latestItem.healthScore < 40 
-                  ? "border-l-destructive border-t-border/50 border-r-border/50 border-b-border/50" 
-                  : latestItem.healthScore < 70 
-                    ? "border-l-warning border-t-border/50 border-r-border/50 border-b-border/50" 
-                    : "border-l-success border-t-border/50 border-r-border/50 border-b-border/50"
-              )}>
+              <Card
+                className={cn(
+                  "rounded-[24px] border-l-4 shadow-sm bg-gradient-to-br from-card to-secondary/5 overflow-hidden",
+                  latestItem.healthScore < 40
+                    ? "border-l-destructive border-t-border/50 border-r-border/50 border-b-border/50"
+                    : latestItem.healthScore < 70
+                      ? "border-l-warning border-t-border/50 border-r-border/50 border-b-border/50"
+                      : "border-l-success border-t-border/50 border-r-border/50 border-b-border/50",
+                )}
+              >
                 <CardContent className="p-4 sm:p-5 flex flex-col gap-4">
                   {/* Header/Title */}
                   <div className="flex items-center justify-between">
@@ -360,8 +445,10 @@ export default function DashboardPage() {
                     <span className="text-4xl sm:text-5xl font-black tracking-tight text-[#002d54]">
                       {latestItem.healthScore}
                     </span>
-                    <span className="text-lg font-bold text-muted-foreground">/100</span>
-                    
+                    <span className="text-lg font-bold text-muted-foreground">
+                      /100
+                    </span>
+
                     <Badge
                       className={cn(
                         "ml-3 text-[10px] py-0.5 px-2 font-bold uppercase",
@@ -372,7 +459,11 @@ export default function DashboardPage() {
                             : "bg-success/20 text-success-foreground border border-success-border/20",
                       )}
                     >
-                      {latestItem.healthScore < 40 ? "Kritis" : latestItem.healthScore < 70 ? "Perlu Perhatian" : "Sehat"}
+                      {latestItem.healthScore < 40
+                        ? "Kritis"
+                        : latestItem.healthScore < 70
+                          ? "Perlu Perhatian"
+                          : "Sehat"}
                     </Badge>
                   </div>
 
@@ -385,26 +476,48 @@ export default function DashboardPage() {
                       ⚡ Prioritas Hari Ini
                     </h3>
                     <div className="grid gap-2">
-                      {latestItem.recommendations && latestItem.recommendations.length > 0 ? (
+                      {latestItem.recommendations &&
+                      latestItem.recommendations.length > 0 ? (
                         latestItem.recommendations.slice(0, 3).map((rec, i) => (
-                          <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                            <span className="text-[#002d54] font-bold select-none">•</span>
-                            <span className="leading-relaxed font-medium">{rec}</span>
+                          <div
+                            key={i}
+                            className="flex items-start gap-2 text-xs text-muted-foreground"
+                          >
+                            <span className="text-[#002d54] font-bold select-none">
+                              •
+                            </span>
+                            <span className="leading-relaxed font-medium">
+                              {rec}
+                            </span>
                           </div>
                         ))
                       ) : (
                         <>
                           <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                            <span className="text-[#002d54] font-bold select-none">•</span>
-                            <span className="leading-relaxed font-medium font-semibold">Perjelas masalah utama usaha Anda</span>
+                            <span className="text-[#002d54] font-bold select-none">
+                              •
+                            </span>
+                            <span className="leading-relaxed font-medium font-semibold">
+                              Perjelas masalah utama usaha Anda
+                            </span>
                           </div>
                           <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                            <span className="text-[#002d54] font-bold select-none">•</span>
-                            <span className="leading-relaxed font-medium font-semibold">Catat data penjualan mingguan untuk melacak keuangan</span>
+                            <span className="text-[#002d54] font-bold select-none">
+                              •
+                            </span>
+                            <span className="leading-relaxed font-medium font-semibold">
+                              Catat data penjualan mingguan untuk melacak
+                              keuangan
+                            </span>
                           </div>
                           <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                            <span className="text-[#002d54] font-bold select-none">•</span>
-                            <span className="leading-relaxed font-medium font-semibold">Tentukan target usaha yang lebih spesifik agar fokus</span>
+                            <span className="text-[#002d54] font-bold select-none">
+                              •
+                            </span>
+                            <span className="leading-relaxed font-medium font-semibold">
+                              Tentukan target usaha yang lebih spesifik agar
+                              fokus
+                            </span>
                           </div>
                         </>
                       )}
@@ -415,7 +528,10 @@ export default function DashboardPage() {
             )}
 
             {/* 2. Riwayat Rekam Medis (dengan Filter) */}
-            <Card id="history" className="rounded-[24px] border-border/50 scroll-mt-20 overflow-hidden">
+            <Card
+              id="history"
+              className="rounded-[24px] border-border/50 scroll-mt-20 overflow-hidden"
+            >
               <CardHeader className="pb-3 p-4 sm:p-5">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
@@ -423,11 +539,14 @@ export default function DashboardPage() {
                       <Clock className="size-4 text-primary-foreground" />
                       Riwayat Rekam Medis
                     </CardTitle>
-                    <Badge variant="secondary" className="text-xs font-semibold rounded-full px-2.5 py-0.5">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs font-semibold rounded-full px-2.5 py-0.5"
+                    >
                       {filteredItems.length} diagnosis
                     </Badge>
                   </div>
-                  
+
                   {/* Filter Chips row (scrollable if mobile) */}
                   <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
                     <button
@@ -436,7 +555,7 @@ export default function DashboardPage() {
                         "px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border shrink-0",
                         filterStatus === "all"
                           ? "bg-[#002d54] text-white border-transparent shadow-sm"
-                          : "bg-background text-muted-foreground border-input hover:bg-accent"
+                          : "bg-background text-muted-foreground border-input hover:bg-accent",
                       )}
                     >
                       Semua
@@ -447,7 +566,7 @@ export default function DashboardPage() {
                         "px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border shrink-0",
                         filterStatus === "sehat"
                           ? "bg-[#002d54] text-white border-transparent shadow-sm"
-                          : "bg-background text-muted-foreground border-input hover:bg-accent"
+                          : "bg-background text-muted-foreground border-input hover:bg-accent",
                       )}
                     >
                       Sehat
@@ -458,7 +577,7 @@ export default function DashboardPage() {
                         "px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border shrink-0",
                         filterStatus === "perlu-perhatian"
                           ? "bg-[#002d54] text-white border-transparent shadow-sm"
-                          : "bg-background text-muted-foreground border-input hover:bg-accent"
+                          : "bg-background text-muted-foreground border-input hover:bg-accent",
                       )}
                     >
                       Perlu Perhatian
@@ -469,7 +588,7 @@ export default function DashboardPage() {
                         "px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border shrink-0",
                         filterStatus === "kritis"
                           ? "bg-[#002d54] text-white border-transparent shadow-sm"
-                          : "bg-background text-muted-foreground border-input hover:bg-accent"
+                          : "bg-background text-muted-foreground border-input hover:bg-accent",
                       )}
                     >
                       Kritis
@@ -502,7 +621,7 @@ export default function DashboardPage() {
                           : item.healthScore < 70
                             ? "Perlu Perhatian"
                             : "Sehat";
-                      
+
                       return (
                         <div
                           key={item.id}
@@ -517,41 +636,77 @@ export default function DashboardPage() {
                                 {item.healthScore}/100
                               </span>
                               <span>•</span>
-                              <span className={cn(
-                                "px-1.5 py-0.5 rounded text-[10px] font-bold border",
-                                item.healthScore < 40
-                                  ? "bg-destructive/20 text-destructive border-destructive-border/10"
-                                  : item.healthScore < 70
-                                    ? "bg-warning/20 text-warning-foreground border-warning-border/10"
-                                    : "bg-success/20 text-success-foreground border-success-border/10"
-                              )}>
+                              <span
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                                  item.healthScore < 40
+                                    ? "bg-destructive/20 text-destructive border-destructive-border/10"
+                                    : item.healthScore < 70
+                                      ? "bg-warning/20 text-warning-foreground border-warning-border/10"
+                                      : "bg-success/20 text-success-foreground border-success-border/10",
+                                )}
+                              >
                                 Status: {statusLabel}
                               </span>
                               <span>•</span>
                               <span>{formatDate(item.createdAt)}</span>
                             </div>
+                            <div className="flex items-center gap-1 mt-1 min-w-0">
+                              <span
+                                className="block max-w-full truncate text-xs text-muted-foreground font-medium"
+                                title={item.mainProblem ?? undefined}
+                              >
+                                {item.mainProblem
+                                  ? `Masalah: ${item.mainProblem}`
+                                  : "Tidak ada masalah utama yang terdeteksi."}
+                              </span>
+                            </div>
                           </div>
-                          <Link
-                            href={`/result?id=${item.id}`}
-                            className="shrink-0"
-                            onClick={(e) => {
-                              if (!navigator.onLine) {
-                                e.preventDefault();
-                                toast.error(
-                                  "Hubungkan internet untuk membuka resep lengkap.",
-                                );
-                              }
-                            }}
-                          >
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 text-xs w-full sm:w-auto font-bold border-primary/20 hover:bg-primary/5 text-[#002d54]"
-                            >
-                              Buka Resep
-                              <ArrowRight className="size-3" strokeWidth={2.5} />
-                            </Button>
-                          </Link>
+                          <div className="shrink-0 flex items-center gap-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                  <span className="sr-only">Menu Aksi</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <Link
+                                    href={`/result?id=${item.id}`}
+                                    onClick={(e) => {
+                                      if (!navigator.onLine) {
+                                        e.preventDefault();
+                                        toast.error(
+                                          "Hubungkan internet untuk membuka resep lengkap.",
+                                        );
+                                      }
+                                    }}
+                                    className="w-full cursor-pointer flex items-center"
+                                  >
+                                    Lihat Hasil
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => shareToWhatsApp(item)}
+                                  className="cursor-pointer"
+                                >
+                                  Bagikan
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => setDeleteConfirmId(item.id)}
+                                  className="cursor-pointer"
+                                >
+                                  Hapus
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
                       );
                     })}
@@ -564,16 +719,28 @@ export default function DashboardPage() {
             <Card className="rounded-[24px] border-border/50 shadow-sm bg-card overflow-hidden">
               <CardContent className="grid grid-cols-3 divide-x divide-border/60 p-4 text-center">
                 <div className="flex flex-col items-center justify-center py-1">
-                  <span className="text-2xl sm:text-3xl font-black text-[#002d54]">{totalDiagnosis}</span>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground font-semibold mt-0.5">Checkup</span>
+                  <span className="text-2xl sm:text-3xl font-black text-[#002d54]">
+                    {totalDiagnosis}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground font-semibold mt-0.5">
+                    Checkup
+                  </span>
                 </div>
                 <div className="flex flex-col items-center justify-center py-1">
-                  <span className="text-2xl sm:text-3xl font-black text-[#002d54]">{isOffline ? "-" : totalCauses}</span>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground font-semibold mt-0.5">Gejala</span>
+                  <span className="text-2xl sm:text-3xl font-black text-[#002d54]">
+                    {isOffline ? "-" : totalCauses}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground font-semibold mt-0.5">
+                    Gejala
+                  </span>
                 </div>
                 <div className="flex flex-col items-center justify-center py-1">
-                  <span className="text-2xl sm:text-3xl font-black text-[#002d54]">{isOffline ? "-" : totalRecommendations}</span>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground font-semibold mt-0.5">Resep</span>
+                  <span className="text-2xl sm:text-3xl font-black text-[#002d54]">
+                    {isOffline ? "-" : totalRecommendations}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground font-semibold mt-0.5">
+                    Resep
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -662,7 +829,8 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex flex-col gap-1 text-center">
                     <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
-                      Belum cukup data untuk melihat perkembangan kesehatan usaha.
+                      Belum cukup data untuk melihat perkembangan kesehatan
+                      usaha.
                     </p>
                     <p className="text-[11px] text-muted-foreground/85 leading-relaxed">
                       Lakukan diagnosis berikutnya untuk mulai melihat tren.
@@ -692,7 +860,7 @@ export default function DashboardPage() {
                 <div className="relative w-full pt-2.5 pb-2">
                   <div className="w-full h-2.5 rounded-full bg-gradient-to-r from-destructive via-warning to-success shadow-inner" />
                   {latestItem && (
-                    <div 
+                    <div
                       className="absolute top-1 flex flex-col items-center -translate-x-1/2 transition-all duration-500"
                       style={{ left: `${latestItem.healthScore}%` }}
                     >
@@ -714,9 +882,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
                       <span className="size-2 rounded-full bg-destructive" />
-                      <span className="font-bold text-destructive">
-                        Kritis
-                      </span>
+                      <span className="font-bold text-destructive">Kritis</span>
                     </div>
                     <span className="text-muted-foreground font-mono font-semibold">
                       0 - 39
@@ -754,10 +920,51 @@ export default function DashboardPage() {
                 Data rekam medis tersimpan aman di cloud dan local cache.
               </p>
             </div>
-
           </div>
         )}
       </div>
+
+      <Dialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setDeleteConfirmId(null);
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!isDeleting}>
+          <DialogHeader>
+            <DialogTitle>Hapus Rekam Medis?</DialogTitle>
+            <DialogDescription>
+              Diagnosis ini akan dihapus secara permanen dan tidak dapat dipulihkan kembali.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmId(null)}
+              disabled={isDeleting}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+              disabled={isDeleting}
+              className="gap-2"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Menghapus...
+                </>
+              ) : (
+                "Hapus"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 }

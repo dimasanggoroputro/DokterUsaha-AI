@@ -1,21 +1,23 @@
 "use client";
 
-// no React named imports needed here
 import { useFormContext } from "react-hook-form";
 import { Target, Sparkles } from "lucide-react";
 import { ConsultationFormValues } from "@/lib/consultation-schema";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 
 export function StepBusinessGoals() {
   const {
     register,
-    formState: { errors, touchedFields, submitCount },
+    setValue,
+    getValues,
+    formState: { errors },
   } = useFormContext<ConsultationFormValues>();
 
-  console.log({
-    errors,
-    touchedFields,
-    submitCount,
-  });
+  const handleVoiceInput = (field: "businessGoal" | "expectedOutcome", text: string) => {
+    const currentText = getValues(field) || "";
+    const separator = currentText ? " " : "";
+    setValue(field, `${currentText}${separator}${text}`, { shouldValidate: true });
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -27,13 +29,18 @@ export function StepBusinessGoals() {
 
       {/* Target Bisnis */}
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="businessGoal"
-          className="flex items-center gap-1.5 text-sm font-semibold text-foreground"
-        >
-          <Target className="size-4 text-muted-foreground" />
-          Target Bisnis dalam 6 Bulan ke Depan
-        </label>
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor="businessGoal"
+            className="flex items-center gap-1.5 text-sm font-semibold text-foreground"
+          >
+            <Target className="size-4 text-muted-foreground" />
+            Target Bisnis dalam 6 Bulan ke Depan
+          </label>
+          <VoiceInputButton
+            onTranscript={(text) => handleVoiceInput("businessGoal", text)}
+          />
+        </div>
         <textarea
           id="businessGoal"
           rows={4}
@@ -45,7 +52,7 @@ export function StepBusinessGoals() {
           *Apa rencana atau pencapaian yang ingin dicapai usaha Anda dalam waktu
           dekat?
         </p>
-        {errors.businessGoal && touchedFields.businessGoal && (
+        {errors.businessGoal && (
           <p className="text-xs font-medium text-destructive mt-0.5">
             {errors.businessGoal.message}
           </p>
@@ -54,13 +61,18 @@ export function StepBusinessGoals() {
 
       {/* Hasil yang Diharapkan */}
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="expectedOutcome"
-          className="flex items-center gap-1.5 text-sm font-semibold text-foreground"
-        >
-          <Sparkles className="size-4 text-muted-foreground" />
-          Hasil yang Paling Diharapkan dari Konsultasi Ini
-        </label>
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor="expectedOutcome"
+            className="flex items-center gap-1.5 text-sm font-semibold text-foreground"
+          >
+            <Sparkles className="size-4 text-muted-foreground" />
+            Hasil yang Paling Diharapkan dari Konsultasi Ini
+          </label>
+          <VoiceInputButton
+            onTranscript={(text) => handleVoiceInput("expectedOutcome", text)}
+          />
+        </div>
         <textarea
           id="expectedOutcome"
           rows={4}
@@ -71,7 +83,7 @@ export function StepBusinessGoals() {
         <p className="text-xs text-muted-foreground/70">
           *Solusi spesifik apa yang paling Anda harapkan dari dokter bisnis ini?
         </p>
-        {errors.expectedOutcome && touchedFields.expectedOutcome && (
+        {errors.expectedOutcome && (
           <p className="text-xs font-medium text-destructive mt-0.5">
             {errors.expectedOutcome.message}
           </p>

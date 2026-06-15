@@ -18,6 +18,7 @@ export type DiagnosisResult = {
   causes: string[]
   recommendations: string[]
   actionPlan: ActionPlanWeek[]
+  checked_tasks?: Record<string, boolean>
   createdAt: string
 }
 

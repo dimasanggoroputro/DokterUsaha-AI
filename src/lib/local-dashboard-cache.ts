@@ -76,6 +76,15 @@ export function syncDashboardCache(entries: DashboardCacheEntry[]): void {
 }
 
 /**
+ * Deletes a single dashboard history entry by ID.
+ */
+export function deleteDashboardHistoryEntry(id: string): void {
+  const cache = readCache();
+  const filtered = cache.filter((item) => item.id !== id);
+  writeCache(filtered);
+}
+
+/**
  * Clears the dashboard cache entirely.
  */
 export function clearDashboardHistory(): void {

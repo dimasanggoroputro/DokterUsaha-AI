@@ -1,6 +1,6 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
+import { useFormContext, Controller } from "react-hook-form"
 import { Store, Users, Calendar, Wallet } from "lucide-react"
 import {
   BUSINESS_TYPE_LABELS,
@@ -8,10 +8,18 @@ import {
   REVENUE_RANGE_LABELS,
 } from "@/types/consultation"
 import { ConsultationFormValues } from "@/lib/consultation-schema"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export function StepBusinessInfo() {
   const {
     register,
+    control,
     formState: { errors },
   } = useFormContext<ConsultationFormValues>()
 
@@ -41,29 +49,28 @@ export function StepBusinessInfo() {
 
       {/* Jenis Usaha */}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="businessType" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <label className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <Store className="size-4 text-muted-foreground" />
           Jenis Usaha
         </label>
-        <div className="relative">
-          <select
-            id="businessType"
-            className="h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
-            {...register("businessType")}
-          >
-            <option value="">-- Pilih Jenis Usaha --</option>
-            {Object.entries(BUSINESS_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground">
-            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-            </svg>
-          </div>
-        </div>
+        <Controller
+          control={control}
+          name="businessType"
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} value={field.value}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue placeholder="-- Pilih Jenis Usaha --" />
+              </SelectTrigger>
+              <SelectContent side="bottom" align="start" avoidCollisions={true}>
+                {Object.entries(BUSINESS_TYPE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {errors.businessType && (
           <p className="text-xs font-medium text-destructive mt-0.5">{errors.businessType.message}</p>
         )}
@@ -71,29 +78,28 @@ export function StepBusinessInfo() {
 
       {/* Lama Usaha */}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="businessAge" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <label className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <Calendar className="size-4 text-muted-foreground" />
           Lama Berdiri
         </label>
-        <div className="relative">
-          <select
-            id="businessAge"
-            className="h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
-            {...register("businessAge")}
-          >
-            <option value="">-- Pilih Lama Berdiri --</option>
-            {Object.entries(BUSINESS_AGE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground">
-            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-            </svg>
-          </div>
-        </div>
+        <Controller
+          control={control}
+          name="businessAge"
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} value={field.value}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue placeholder="-- Pilih Lama Berdiri --" />
+              </SelectTrigger>
+              <SelectContent side="bottom" align="start" avoidCollisions={true}>
+                {Object.entries(BUSINESS_AGE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {errors.businessAge && (
           <p className="text-xs font-medium text-destructive mt-0.5">{errors.businessAge.message}</p>
         )}
@@ -121,29 +127,28 @@ export function StepBusinessInfo() {
 
         {/* Omzet Bulanan */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="monthlyRevenue" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <Wallet className="size-4 text-muted-foreground" />
             Omzet Bulanan
           </label>
-          <div className="relative">
-            <select
-              id="monthlyRevenue"
-              className="h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
-              {...register("monthlyRevenue")}
-            >
-              <option value="">-- Pilih Omzet --</option>
-              {Object.entries(REVENUE_RANGE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-              </svg>
-            </div>
-          </div>
+          <Controller
+            control={control}
+            name="monthlyRevenue"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder="-- Pilih Omzet --" />
+                </SelectTrigger>
+                <SelectContent side="bottom" align="start" avoidCollisions={true}>
+                  {Object.entries(REVENUE_RANGE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           {errors.monthlyRevenue && (
             <p className="text-xs font-medium text-destructive mt-0.5">{errors.monthlyRevenue.message}</p>
           )}

@@ -40,10 +40,11 @@ export function DiagnosisWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const methods = useForm<ConsultationFormValues>({
     resolver: zodResolver(consultationSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: {
       businessName: "",
       businessType: "",
@@ -61,14 +62,18 @@ export function DiagnosisWizard() {
 
   const nextStep = async () => {
     const fieldsToValidate = STEP_FIELDS[step as keyof typeof STEP_FIELDS];
-
     const isValid = await trigger(fieldsToValidate);
 
     if (isValid) {
-      clearErrors();
+      setIsTransitioning(true);
       setStep((prev) => Math.min(prev + 1, 3));
+      setTimeout(() => {
+        clearErrors();
+        setIsTransitioning(false);
+      }, 0);
     }
   };
+
   const prevStep = () => {
     clearErrors();
 
@@ -138,9 +143,9 @@ export function DiagnosisWizard() {
           <form onSubmit={handleSubmit(onSubmit)} className="mt-4">
             {/* Step Content */}
             <div className="min-h-[280px]">
-              {step === 1 && <StepBusinessInfo />}
-              {step === 2 && <StepBusinessProblems />}
-              {step === 3 && <StepBusinessGoals />}
+              {!isTransitioning && step === 1 && <StepBusinessInfo />}
+              {!isTransitioning && step === 2 && <StepBusinessProblems />}
+              {!isTransitioning && step === 3 && <StepBusinessGoals />}
             </div>
 
             {/* Navigation Buttons */}
