@@ -625,9 +625,9 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={item.id}
-                          className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                          className="flex items-start justify-between gap-3 py-4 first:pt-0 last:pb-0 sm:items-center"
                         >
-                          <div className="flex flex-col gap-1 text-left min-w-0">
+                          <div className="flex flex-col gap-1 text-left min-w-0 flex-1">
                             <span className="text-sm font-bold text-foreground line-clamp-2 break-words">
                               {item.businessName}
                             </span>
@@ -662,7 +662,7 @@ export default function DashboardPage() {
                               </span>
                             </div>
                           </div>
-                          <div className="shrink-0 flex items-center gap-2">
+                          <div className="shrink-0 self-start">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
