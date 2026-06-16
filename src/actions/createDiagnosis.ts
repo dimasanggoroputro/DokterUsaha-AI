@@ -5,6 +5,7 @@ import { ConsultationData, DiagnosisResult } from "@/types/diagnosis";
 import { saveDiagnosis } from "@/lib/db-service";
 import { getUserFriendlyErrorMessage } from "@/lib/error-handler";
 import { calculateHealthScore } from "@/lib/health-engine";
+import { calculateBusinessMetrics } from "@/lib/metrics-engine";
 
 // Initialize GoogleGenAI client
 // Next.js Server Actions execute on the server, so process.env is accessible
@@ -28,6 +29,9 @@ export async function createDiagnosisAction(
     calculated.healthStatus === "perlu-perhatian" ? "Perlu Perhatian (Rawat Jalan)" : 
     "Kritis (Gawat Darurat)";
 
+  // Calculate business metrics
+  const metrics = calculateBusinessMetrics(consultationData);
+
   const prompt = `
 Anda adalah seorang konsultan bisnis profesional untuk UMKM di Indonesia dengan pembawaan yang sangat ramah, hangat, dan suportif. Gaya komunikasi Anda memadukan keahlian analitis bisnis tingkat tinggi dengan metafora medis yang halus dan santun (sebagai "Dokter Bisnis Digital"). Hindari kesan sebagai dokter gadungan yang terlalu berlebihan atau menggunakan humor medis/nama penyakit fiktif yang konyol.
 
@@ -38,6 +42,12 @@ Tugas Anda adalah mendiagnosis kesehatan bisnis dari pemilik usaha berdasarkan d
 - **Lama Usaha**: ${consultationData.businessAge}
 - **Jumlah Karyawan**: ${consultationData.employeeCount} orang
 - **Omzet Bulanan**: ${consultationData.monthlyRevenue}
+- **Omzet Bulan Lalu**: ${consultationData.revenuePrevMonth ? `Rp ${consultationData.revenuePrevMonth.toLocaleString("id-ID")}` : "Tidak diisi"}
+- **Omzet Bulan Ini**: ${consultationData.revenueCurrentMonth ? `Rp ${consultationData.revenueCurrentMonth.toLocaleString("id-ID")}` : "Tidak diisi"}
+- **Perubahan Omzet**: ${metrics.revenueChangePercent !== null ? `${metrics.revenueChangePercent}% (${metrics.revenueStatus})` : "Tidak dapat dihitung"}
+- **Pelanggan Harian**: ${consultationData.dailyCustomers || "Tidak diisi"}
+- **Transaksi Harian**: ${consultationData.dailyTransactions || "Tidak diisi"}
+- **Rasio Konversi Transaksi**: ${metrics.conversionRate !== null ? `${metrics.conversionRate}%` : "Tidak dapat dihitung"}
 - **Masalah Utama (Keluhan)**: ${consultationData.mainProblem}
 - **Tantangan Spesifik saat ini**: ${consultationData.currentChallenges}
 - **Target Bisnis 6 Bulan ke Depan**: ${consultationData.businessGoal}
@@ -48,7 +58,7 @@ Sistem kami telah menghitung kondisi kesehatan bisnis kuantitatif awal secara ob
 - **Status Kesehatan**: ${calculatedStatusLabel} (${calculated.healthStatus})
 
 PANDUAN UTAMA DIAGNOSIS & ANALISIS:
-1. **Analisis Riil & Menyeluruh**: Lakukan analisis menggunakan logika bisnis yang rasional berdasarkan semua parameter di atas. Anda wajib menjelaskan alasan di balik Skor Kesehatan sebesar ${calculated.healthScore}/100 dan status kesehatan ${calculatedStatusLabel} yang telah dihitung oleh sistem. Pertimbangkan hubungan antara umur bisnis, jumlah staf, omzet, dan masalah yang dihadapi. Jangan abaikan bidang masukan apa pun.
+1. **Analisis Riil & Menyeluruh**: Lakukan analisis menggunakan logika bisnis yang rasional berdasarkan semua parameter di atas termasuk metrik bisnis riil (seperti persentase perubahan omzet dan tingkat konversi harian) jika diisi. Anda wajib menjelaskan alasan di balik Skor Kesehatan sebesar ${calculated.healthScore}/100 dan status kesehatan ${calculatedStatusLabel} yang telah dihitung oleh sistem. Pertimbangkan hubungan antara umur bisnis, jumlah staf, omzet, metrik bisnis tambahan, dan masalah yang dihadapi. Jangan abaikan bidang masukan apa pun. Silakan soroti apakah perubahan omzet atau tingkat konversi yang rendah merupakan kontributor utama masalah mereka.
 2. **Larangan Fabrikasi Data & Aturan Akurasi**: JANGAN PERNAH membuat-buat metrik bisnis baru atau fakta numerik yang tidak disediakan oleh pengguna (seperti angka penjualan fiktif atau persentase spesifik). Jangan pernah menyatakan sesuatu sebagai fakta jika pengguna tidak memberikan informasi tersebut secara eksplisit dalam input. Jika Anda ingin menyebut kemungkinan penyebab/faktor yang belum dipastikan oleh user, gunakan format tentatif seperti: *'Kemungkinan'*, *'Dugaan'*, *'Perlu diperiksa lebih lanjut'*, atau *'Indikasi awal'*.
 3. **Penggunaan Metafora Medis yang Halus**: Metafora medis bersifat opsional dan harus realistis serta mudah dipahami oleh pemilik usaha kecil di Indonesia.
    - Gunakan istilah yang wajar seperti "Kas Seret" (bukan "Dehidrasi Likuiditas Akut"), "Sepi Pembeli" atau "Krisis Trafik" (bukan "Kelesuan Trafik"), dan "Kelebihan Beban" (bukan "Penyakit Obesitas Operasional").

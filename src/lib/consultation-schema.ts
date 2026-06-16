@@ -16,6 +16,22 @@ export const step1Schema = z.object({
   monthlyRevenue: z
     .string()
     .min(1, { message: "Silakan pilih rentang omzet bulanan Anda" }),
+  revenuePrevMonth: z
+    .number()
+    .min(0, { message: "Omzet tidak boleh negatif" })
+    .optional(),
+  revenueCurrentMonth: z
+    .number()
+    .min(0, { message: "Omzet tidak boleh negatif" })
+    .optional(),
+  dailyCustomers: z
+    .number()
+    .min(0, { message: "Jumlah pelanggan tidak boleh negatif" })
+    .optional(),
+  dailyTransactions: z
+    .number()
+    .min(0, { message: "Jumlah transaksi tidak boleh negatif" })
+    .optional(),
 })
 
 export const step2Schema = z.object({

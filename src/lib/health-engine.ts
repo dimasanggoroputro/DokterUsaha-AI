@@ -1,4 +1,5 @@
 import { ConsultationData } from "@/types/diagnosis";
+import { calculateBusinessMetrics } from "./metrics-engine";
 
 /**
  * Calculates a logical, transparent, and reproducible health score for the business.
@@ -89,7 +90,22 @@ export function calculateHealthScore(data: ConsultationData): {
     score += 3; // Realistic expectations
   }
 
-  // 5. Normalization & Status Assignment
+  // 5. Real Business Metrics Adjustments
+  const metrics = calculateBusinessMetrics(data);
+  if (metrics.hasMetrics) {
+    if (metrics.revenueChangePercent !== null) {
+      if (metrics.revenueChangePercent < -20) {
+        score -= 10;
+      } else if (metrics.revenueChangePercent > 10) {
+        score += 5;
+      }
+    }
+    if (metrics.conversionRate !== null && metrics.conversionRate < 50) {
+      score -= 5;
+    }
+  }
+
+  // 6. Normalization & Status Assignment
   score = Math.max(10, Math.min(98, score)); // Min 10, Max 98
 
   let status: "sehat" | "perlu-perhatian" | "kritis" = "perlu-perhatian";

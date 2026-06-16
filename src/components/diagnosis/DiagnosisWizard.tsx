@@ -31,6 +31,10 @@ const STEP_FIELDS = {
     "businessAge",
     "employeeCount",
     "monthlyRevenue",
+    "revenuePrevMonth",
+    "revenueCurrentMonth",
+    "dailyCustomers",
+    "dailyTransactions",
   ] as const,
   2: ["mainProblem", "currentChallenges"] as const,
   3: ["businessGoal", "expectedOutcome"] as const,
@@ -55,6 +59,10 @@ export function DiagnosisWizard() {
       currentChallenges: "",
       businessGoal: "",
       expectedOutcome: "",
+      revenuePrevMonth: undefined,
+      revenueCurrentMonth: undefined,
+      dailyCustomers: undefined,
+      dailyTransactions: undefined,
     },
   });
 
@@ -107,6 +115,10 @@ export function DiagnosisWizard() {
         currentChallenges: data.currentChallenges,
         businessGoal: data.businessGoal,
         expectedOutcome: data.expectedOutcome,
+        revenuePrevMonth: data.revenuePrevMonth,
+        revenueCurrentMonth: data.revenueCurrentMonth,
+        dailyCustomers: data.dailyCustomers,
+        dailyTransactions: data.dailyTransactions,
       };
 
       const userId = getOrCreateUserId();

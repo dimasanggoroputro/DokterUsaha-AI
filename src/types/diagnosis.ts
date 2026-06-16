@@ -32,6 +32,10 @@ export type ConsultationData = {
   currentChallenges: string
   businessGoal: string
   expectedOutcome: string
+  revenuePrevMonth?: number
+  revenueCurrentMonth?: number
+  dailyCustomers?: number
+  dailyTransactions?: number
 }
 
 export type ConsultationHistory = {

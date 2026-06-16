@@ -17,12 +17,14 @@ interface ActionPlanTimelineProps {
   timeline: ActionPlanWeek[];
   diagnosisId: string;
   initialCheckedTasks?: Record<string, boolean>;
+  onProgressChange?: (checkedTasks: Record<string, boolean>) => void;
 }
 
 export function ActionPlanTimeline({
   timeline,
   diagnosisId,
   initialCheckedTasks,
+  onProgressChange,
 }: ActionPlanTimelineProps) {
   const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>(
     initialCheckedTasks || {}
@@ -35,15 +37,23 @@ export function ActionPlanTimeline({
     if (typeof window !== "undefined" && diagnosisId) {
       try {
         const saved = localStorage.getItem(storageKey);
+        let merged = checkedTasks;
         if (saved) {
           const parsed = JSON.parse(saved);
-          setCheckedTasks((prev) => ({
+          merged = {
             ...parsed,
-            ...prev, // initialCheckedTasks from DB takes priority
-          }));
+            ...checkedTasks, // initialCheckedTasks from DB takes priority
+          };
+          setCheckedTasks(merged);
+        }
+        if (onProgressChange) {
+          onProgressChange(merged);
         }
       } catch (err) {
         console.warn("Failed to load local action plan progress:", err);
+        if (onProgressChange) {
+          onProgressChange(checkedTasks);
+        }
       }
     }
   }, [diagnosisId, storageKey]);
@@ -56,6 +66,9 @@ export function ActionPlanTimeline({
       [taskKey]: !checkedTasks[taskKey],
     };
     setCheckedTasks(updated);
+    if (onProgressChange) {
+      onProgressChange(updated);
+    }
 
     // 1. Save to local storage
     if (typeof window !== "undefined" && diagnosisId) {

@@ -29,7 +29,6 @@ const mobileNavLinks = [
   { href: "/diagnosis", label: "Konsultasi", icon: ClipboardList },
   { href: "/result", label: "Resep Solusi", icon: Stethoscope },
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
-  { href: "/dashboard#history", label: "Riwayat", icon: Clock },
 ];
 
 export function Navbar() {
@@ -53,7 +52,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
         <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
           {/* Logo */}
           <Link
@@ -123,18 +122,8 @@ export function Navbar() {
       {/* Mobile Bottom Navigation Bar (PRIORITAS 7) */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-lg py-2 px-2 flex justify-around items-center sm:hidden shadow-lg pb-[calc(env(safe-area-inset-bottom)+8px)]">
         {mobileNavLinks.map((link) => {
-          const isHistory = link.href.endsWith("#history");
-          const isDashboard = link.href === "/dashboard";
+          const isActive = pathname === link.href;
           
-          let isActive = false;
-          if (isHistory) {
-            isActive = pathname === "/dashboard" && activeHash === "#history";
-          } else if (isDashboard) {
-            isActive = pathname === "/dashboard" && activeHash !== "#history";
-          } else {
-            isActive = pathname === link.href;
-          }
-
           return (
             <Link
               key={link.href}

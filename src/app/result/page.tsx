@@ -47,6 +47,10 @@ import {
   getFullDiagnosisFromCache,
 } from "@/lib/offline-diagnosis-cache";
 import { followUpChatAction } from "@/actions/followUpChat";
+import { generateProgressReportAction } from "@/actions/generateProgressReport";
+import { calculatePrediction, PredictionResult } from "@/lib/prediction-engine";
+import { generatePredictionAction } from "@/actions/generatePrediction";
+import { calculateBusinessMetrics } from "@/lib/metrics-engine";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { Send, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
@@ -144,8 +148,64 @@ function ResultPageContent() {
   const [chatInput, setChatInput] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
 
+  // Fitur 1: Progress Report
+  const [progressNarrative, setProgressNarrative] = useState<string | null>(null);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+
+  // Fitur 3: Prediction
+  const [predictionData, setPredictionData] = useState<PredictionResult | null>(null);
+  const [predictionNarrative, setPredictionNarrative] = useState<string | null>(null);
+  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
+
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+
+  // Real-time prediction calculation
+  const handleProgressChange = (updatedCheckedTasks: Record<string, boolean>) => {
+    if (!result) return;
+    const pred = calculatePrediction(
+      result.healthScore,
+      updatedCheckedTasks,
+      result.actionPlan
+    );
+    setPredictionData(pred);
+  };
+
+  // Debounced API call for prediction explanation
+  useEffect(() => {
+    if (!result || !consultation || !predictionData) return;
+
+    const controller = new AbortController();
+    const delayDebounceFn = setTimeout(async () => {
+      setIsLoadingPrediction(true);
+      try {
+        const narrative = await generatePredictionAction({
+          currentScore: result.healthScore,
+          predictedScore: predictionData.predictedScore,
+          completionRate: predictionData.completionRate,
+          completedTasks: predictionData.completedTasks,
+          totalTasks: predictionData.totalTasks,
+          businessName: consultation.businessName,
+          healthStatus: result.healthStatus,
+        });
+        setPredictionNarrative(narrative);
+      } catch (err) {
+        console.error("Failed to generate prediction analysis:", err);
+      } finally {
+        setIsLoadingPrediction(false);
+      }
+    }, 1500); // 1.5s debounce
+
+    return () => {
+      clearTimeout(delayDebounceFn);
+      controller.abort();
+    };
+  }, [
+    predictionData?.completedTasks,
+    predictionData?.predictedScore,
+    result?.healthScore,
+    consultation?.businessName,
+  ]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -171,12 +231,37 @@ function ResultPageContent() {
             data.diagnosisResult,
           );
 
+          // Initialize prediction data
+          const initialPred = calculatePrediction(
+            data.diagnosisResult.healthScore,
+            data.diagnosisResult.checked_tasks,
+            data.diagnosisResult.actionPlan
+          );
+          setPredictionData(initialPred);
+
           // Get user diagnoses to find the previous one for comparison
           if (data.user_id) {
             const history = await getDiagnosesByUserId(data.user_id);
             const currentIndex = history.findIndex((h) => h.id === id);
             if (currentIndex !== -1 && currentIndex + 1 < history.length) {
-              setPreviousResult(history[currentIndex + 1].diagnosisResult);
+              const prev = history[currentIndex + 1].diagnosisResult;
+              setPreviousResult(prev);
+
+              // Trigger progress report narrative generation (async, non-blocking)
+              setIsLoadingProgress(true);
+              generateProgressReportAction({
+                currentScore: data.diagnosisResult.healthScore,
+                previousScore: prev.healthScore,
+                scoreDiff: data.diagnosisResult.healthScore - prev.healthScore,
+                currentStatus: data.diagnosisResult.healthStatus,
+                previousStatus: prev.healthStatus,
+                currentMainProblem: data.consultationData.mainProblem,
+                previousMainProblem: history[currentIndex + 1].consultationData.mainProblem,
+                businessName: data.consultationData.businessName,
+              })
+                .then((narrative) => setProgressNarrative(narrative))
+                .catch((err) => console.error("Error generating progress report:", err))
+                .finally(() => setIsLoadingProgress(false));
             }
           }
         }
@@ -189,6 +274,15 @@ function ResultPageContent() {
           setConsultation(cached.consultationData);
           setResult(cached.diagnosisResult);
           setIsOfflineError(false);
+
+          // Initialize prediction data
+          const initialPred = calculatePrediction(
+            cached.diagnosisResult.healthScore,
+            cached.diagnosisResult.checked_tasks,
+            cached.diagnosisResult.actionPlan
+          );
+          setPredictionData(initialPred);
+
           toast.info(
             "Menampilkan rekam medis dari penyimpanan lokal (Luring).",
             {
@@ -348,9 +442,8 @@ function ResultPageContent() {
         </Card>
       </PageContainer>
     );
-  }
-
-  const urgency = urgencyConfig[result.urgency] || urgencyConfig.sedang;
+  }  const urgency = urgencyConfig[result.urgency] || urgencyConfig.sedang;
+  const metrics = consultation ? calculateBusinessMetrics(consultation) : null;
 
   return (
     <PageContainer maxWidth="sm">
@@ -404,12 +497,78 @@ function ResultPageContent() {
           quality={result.dataQuality}
         />
 
+        {/* Fitur 1: Progress Report (Laporan Perkembangan) */}
+        {previousResult && (
+          <CollapsibleSection
+            title="Laporan Perkembangan Bisnis"
+            description="Perbandingan skor kesehatan & analisis tren kemajuan usaha Anda"
+            icon={Activity}
+            defaultOpen={true}
+          >
+            {(() => {
+              const scoreDiff = result.healthScore - previousResult.healthScore;
+              return (
+                <div className="flex flex-col gap-3 pt-1">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-muted-foreground">Sebelumnya</span>
+                      <span className="text-xl font-bold text-muted-foreground">
+                        {previousResult.healthScore}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1 items-center justify-center">
+                      <span
+                        className={`text-xl font-black ${
+                          scoreDiff > 0
+                            ? "text-success-foreground"
+                            : scoreDiff < 0
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground font-semibold">
+                        {scoreDiff > 0 ? "↑ Membaik" : scoreDiff < 0 ? "↓ Menurun" : "Tidak berubah"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-muted-foreground">Sekarang</span>
+                      <span className="text-xl font-bold text-[#002d54]">
+                        {result.healthScore}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Separator className="my-1 border-border/40" />
+
+                  <div className="bg-primary/5 rounded-lg p-3 text-xs leading-relaxed border border-primary/10">
+                    <div className="font-bold text-[#002d54] mb-1 flex items-center gap-1.5">
+                      <Activity className="size-3.5" />
+                      Analisis Perkembangan Dokter AI:
+                    </div>
+                    {isLoadingProgress ? (
+                      <div className="flex items-center gap-2 text-muted-foreground animate-pulse py-1">
+                        <Activity className="size-3.5 animate-spin" />
+                        <span>Menganalisis kemajuan...</span>
+                      </div>
+                    ) : progressNarrative ? (
+                      <p className="text-foreground/80">{progressNarrative}</p>
+                    ) : (
+                      <p className="text-muted-foreground/80 italic">Analisis perkembangan tidak tersedia.</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </CollapsibleSection>
+        )}
+
         {/* PRIORITAS 4 - Quick Summary Card */}
         <Card className="border-[#A5D6FA]/30 bg-primary/5 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-[#002d54] flex items-center gap-1.5">
-              <NotepadText className="w-4 h-4" /> Kesimpulan Singkat (10-Second
-              Summary)
+              <NotepadText className="w-4 h-4" /> Kesimpulan Singkat (10-Second Summary)
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-xs pt-1">
@@ -450,10 +609,49 @@ function ResultPageContent() {
                 Masalah Utama:
               </span>
               <span className="font-semibold text-foreground leading-relaxed">
-                &quot;{consultation?.mainProblem || "Tidak dispesifikasikan"}
-                &quot;
+                &quot;{consultation?.mainProblem || "Tidak dispesifikasikan"}&quot;
               </span>
             </div>
+
+            {/* Fitur 5: Real Business Metrics View */}
+            {metrics && metrics.hasMetrics && (
+              <div className="flex flex-col gap-1.5 border-t border-border/40 pt-2">
+                <span className="text-[10px] text-[#002d54] uppercase tracking-wider font-bold">
+                  Analisis Metrik Bisnis:
+                </span>
+                <div className="grid grid-cols-2 gap-3 bg-white/50 rounded-lg p-2 border border-border/30">
+                  {metrics.revenueChangePercent !== null && (
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-muted-foreground">Pertumbuhan Omzet:</span>
+                      <span
+                        className={cn(
+                          "font-bold text-[11px]",
+                          metrics.revenueStatus === "naik"
+                            ? "text-success-foreground"
+                            : metrics.revenueStatus === "turun"
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {metrics.revenueChangePercent > 0 ? `+${metrics.revenueChangePercent}%` : `${metrics.revenueChangePercent}%`}
+                        {metrics.revenueStatus === "naik" ? " (↑ Naik)" : metrics.revenueStatus === "turun" ? " (↓ Turun)" : " (Stabil)"}
+                      </span>
+                    </div>
+                  )}
+                  {metrics.conversionRate !== null && (
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-muted-foreground">Rasio Konversi Pelanggan:</span>
+                      <span className="font-bold text-foreground text-[11px]">
+                        {metrics.conversionRate}%
+                        <span className="text-[9px] font-normal text-muted-foreground ml-1">
+                          ({metrics.conversionRate >= 50 ? "Bagus" : "Perlu Dioptimalkan"})
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-0.5 border-t border-border/40 pt-2">
               <span className="text-[10px] text-muted-foreground">
@@ -624,55 +822,66 @@ function ResultPageContent() {
               timeline={result.actionPlan}
               diagnosisId={id || ""}
               initialCheckedTasks={result.checked_tasks}
+              onProgressChange={handleProgressChange}
             />
           </CollapsibleSection>
 
-          {/* Section 7: Perbandingan Pemeriksaan */}
-          {previousResult && (
+          {/* Section 7: Prediksi DokterUsaha AI */}
+          {predictionData && (
             <CollapsibleSection
-              title="Perbandingan Pemeriksaan"
-              description="Perkembangan skor kesehatan usaha dibanding check-up sebelumnya"
-              icon={Activity}
-              defaultOpen={false}
+              title="Prediksi Kesehatan Usaha 30 Hari"
+              description="Perkiraan peningkatan skor jika Anda menyelesaikan rencana aksi"
+              icon={Rocket}
+              defaultOpen={true}
             >
-              {(() => {
-                const scoreDiff =
-                  result.healthScore - previousResult.healthScore;
-                return (
-                  <div className="grid grid-cols-3 gap-4 text-center pt-2">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">
-                        Sebelumnya
-                      </span>
-                      <span className="text-2xl font-bold text-muted-foreground">
-                        {previousResult.healthScore}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-1 items-center justify-center">
-                      <span
-                        className={`text-2xl font-black ${scoreDiff > 0 ? "text-success-foreground" : scoreDiff < 0 ? "text-destructive" : "text-muted-foreground"}`}
-                      >
-                        {scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground font-semibold">
-                        {scoreDiff > 0
-                          ? "↑ Membaik"
-                          : scoreDiff < 0
-                            ? "↓ Menurun"
-                            : "Tidak berubah"}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">
-                        Sekarang
-                      </span>
-                      <span className="text-2xl font-bold text-primary-foreground">
-                        {result.healthScore}
-                      </span>
-                    </div>
+              <div className="flex flex-col gap-4 pt-1">
+                {/* Score comparison prediction */}
+                <div className="grid grid-cols-3 gap-4 text-center items-center">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-muted-foreground font-semibold">Skor Saat Ini</span>
+                    <span className="text-xl font-bold text-muted-foreground">{result.healthScore}</span>
                   </div>
-                );
-              })()}
+                  <div className="flex flex-col gap-1 items-center justify-center">
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                      <div
+                        className="bg-primary h-full transition-all duration-500"
+                        style={{ width: `${predictionData.completionRate}%` }}
+                      />
+                    </div>
+                    <span className="text-[9px] text-muted-foreground font-semibold">
+                      Progres Rencana Aksi: {predictionData.completionRate}%
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-[#002d54] font-bold">Prediksi 30 Hari</span>
+                    <span className="text-2xl font-black text-primary-foreground">
+                      {predictionData.predictedScore}/100
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-center text-[11px] text-muted-foreground leading-relaxed">
+                  Menyelesaikan <span className="font-bold text-foreground">{predictionData.completedTasks} dari {predictionData.totalTasks}</span> tugas rencana aksi dapat meningkatkan skor Anda sebesar <span className="font-bold text-success-foreground">+{predictionData.potentialGain}</span> poin.
+                </div>
+
+                {/* AI Explanation */}
+                <div className="bg-primary/5 rounded-lg p-3 text-xs leading-relaxed border border-primary/10">
+                  <div className="font-bold text-[#002d54] mb-1 flex items-center gap-1.5">
+                    <Rocket className="size-3.5 text-primary" />
+                    Analisis Prediksi AI:
+                  </div>
+                  {isLoadingPrediction ? (
+                    <div className="flex items-center gap-2 text-muted-foreground animate-pulse py-1">
+                      <Activity className="size-3.5 animate-spin" />
+                      <span>Membuat analisis prediksi...</span>
+                    </div>
+                  ) : predictionNarrative ? (
+                    <p className="text-foreground/80">{predictionNarrative}</p>
+                  ) : (
+                    <p className="text-muted-foreground/80 italic">Centang rencana aksi untuk melihat analisis prediksi.</p>
+                  )}
+                </div>
+              </div>
             </CollapsibleSection>
           )}
         </div>

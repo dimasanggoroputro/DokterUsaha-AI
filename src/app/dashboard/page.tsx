@@ -52,6 +52,9 @@ import {
   removeFullDiagnosisFromCache,
 } from "@/lib/offline-diagnosis-cache";
 import { deleteDiagnosisAction } from "@/actions/deleteDiagnosis";
+import { generateMentorTipAction } from "@/actions/generateMentorTip";
+import { getBenchmarkAction, BenchmarkResult } from "@/actions/getBenchmark";
+import { ActionPlanWeek } from "@/types/diagnosis";
 import { toast } from "sonner";
 import {
   ResponsiveContainer,
@@ -62,6 +65,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
+import ReactMarkdown from "react-markdown";
 
 type FilterStatus = "all" | "sehat" | "perlu-perhatian" | "kritis";
 
@@ -77,6 +81,9 @@ type DashboardItem = {
   mainProblem?: string;
   causes?: string[];
   recommendations?: string[];
+  checked_tasks?: Record<string, boolean>;
+  actionPlan?: ActionPlanWeek[];
+  businessType?: string;
 };
 
 export default function DashboardPage() {
@@ -88,6 +95,14 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Fitur 4: Mentor Mingguan
+  const [mentorTip, setMentorTip] = useState<string | null>(null);
+  const [isLoadingMentor, setIsLoadingMentor] = useState(false);
+
+  // Fitur 6: Benchmark UMKM
+  const [benchmark, setBenchmark] = useState<BenchmarkResult | null>(null);
+  const [isLoadingBenchmark, setIsLoadingBenchmark] = useState(false);
 
   const filteredItems = useMemo(() => {
     if (filterStatus === "all") return items;
@@ -118,14 +133,17 @@ export default function DashboardPage() {
   }));
 
   const shareToWhatsApp = (item: DashboardItem) => {
-    const url = typeof window !== "undefined" ? `${window.location.origin}/result?id=${item.id}` : "";
+    const url =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/result?id=${item.id}`
+        : "";
     const statusText =
       item.healthScore >= 70
         ? "SEHAT/BUGAR"
         : item.healthScore >= 40
           ? "RAWAT JALAN"
           : "GAWAT DARURAT";
-          
+
     const text = `*Hasil Pemeriksaan DokterUsaha AI* 🩺\n\n*Nama Usaha:* ${item.businessName}\n*Skor Kesehatan:* ${item.healthScore}/100 (${statusText})\n\nBaca rekomendasi resep solusi lengkap & rencana aksi 3 minggu Anda secara gratis di:\n${url}`;
 
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
@@ -181,6 +199,9 @@ export default function DashboardPage() {
           mainProblem: item.consultationData?.mainProblem,
           causes: item.diagnosisResult?.causes,
           recommendations: item.diagnosisResult?.recommendations,
+          checked_tasks: item.diagnosisResult?.checked_tasks,
+          actionPlan: item.diagnosisResult?.actionPlan,
+          businessType: item.consultationData?.businessType,
         }));
 
         // Cache full details offline
@@ -233,6 +254,96 @@ export default function DashboardPage() {
     }
     loadDashboardData();
   }, []);
+
+  const latestItem = items.length > 0 ? items[0] : null;
+
+  // Fetch AI Mentor Tip (Weekly Mentor)
+  useEffect(() => {
+    const currentLatestItem = latestItem;
+    if (!currentLatestItem) return;
+
+    async function fetchMentorTip() {
+      if (!currentLatestItem) return;
+      setIsLoadingMentor(true);
+      try {
+        // Calculate completed and total tasks
+        let totalTasks = 0;
+        currentLatestItem.actionPlan?.forEach((week) => {
+          totalTasks += week.tasks.length;
+        });
+
+        let completedTasks = 0;
+        const storageKey = `dokterusaha_ap_progress_${currentLatestItem.id}`;
+        let hasLocalProgress = false;
+        if (typeof window !== "undefined") {
+          try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              Object.values(parsed).forEach((isChecked) => {
+                if (isChecked) completedTasks++;
+              });
+              hasLocalProgress = true;
+            }
+          } catch (e) {
+            console.warn("Failed to read local progress for mentor tip:", e);
+          }
+        }
+
+        if (!hasLocalProgress && currentLatestItem.checked_tasks) {
+          Object.values(currentLatestItem.checked_tasks).forEach(
+            (isChecked) => {
+              if (isChecked) completedTasks++;
+            },
+          );
+        }
+
+        const tip = await generateMentorTipAction({
+          businessName: currentLatestItem.businessName,
+          healthScore: currentLatestItem.healthScore,
+          healthStatus: currentLatestItem.healthStatus,
+          mainProblem: currentLatestItem.mainProblem || "",
+          completedTasks,
+          totalTasks,
+          topRecommendation: currentLatestItem.recommendations?.[0] || "",
+        });
+        setMentorTip(tip);
+      } catch (e) {
+        console.error("Failed to generate mentor tip:", e);
+        setMentorTip(
+          "DokterUsaha AI sedang beristirahat. Pastikan koneksi internet Anda stabil untuk menerima pesan mentor mingguan.",
+        );
+      } finally {
+        setIsLoadingMentor(false);
+      }
+    }
+
+    fetchMentorTip();
+  }, [latestItem?.id]);
+
+  // Fetch UMKM Benchmark
+  useEffect(() => {
+    const currentLatestItem = latestItem;
+    if (!currentLatestItem || !currentLatestItem.businessType) return;
+
+    async function fetchBenchmark() {
+      if (!currentLatestItem || !currentLatestItem.businessType) return;
+      setIsLoadingBenchmark(true);
+      try {
+        const res = await getBenchmarkAction(
+          currentLatestItem.businessType,
+          currentLatestItem.healthScore,
+        );
+        setBenchmark(res);
+      } catch (e) {
+        console.error("Failed to load benchmark:", e);
+      } finally {
+        setIsLoadingBenchmark(false);
+      }
+    }
+
+    fetchBenchmark();
+  }, [latestItem?.id, latestItem?.businessType]);
 
   // Dynamic statistics
   const totalDiagnosis = items.length;
@@ -301,8 +412,6 @@ export default function DashboardPage() {
       </PageContainer>
     );
   }
-
-  const latestItem = items.length > 0 ? items[0] : null;
 
   return (
     <PageContainer>
@@ -527,12 +636,57 @@ export default function DashboardPage() {
               </Card>
             )}
 
+            {/* AI Mentor Mingguan */}
+            {latestItem && (
+              <Card className="rounded-[24px] border-[#A5D6FA]/30 bg-gradient-to-br from-card to-primary/[0.03] shadow-sm overflow-hidden">
+                <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-primary/20 text-[#002d54] border border-[#a5d6fa]/30">
+                      <Stethoscope className="size-4 animate-pulse text-[#002d54]" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xs font-bold uppercase tracking-wider text-[#002d54]">
+                        Mentor Mingguan
+                      </CardTitle>
+                      <CardDescription className="text-[10px]">
+                        Saran pribadi & bimbingan langsung dari DokterUsaha AI
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
+                  {isLoadingMentor ? (
+                    <div className="flex items-center gap-2 text-muted-foreground animate-pulse py-4 text-xs font-medium">
+                      <Loader2 className="size-4 animate-spin text-primary" />
+                      <span>Dokter sedang meramu saran mentor Anda...</span>
+                    </div>
+                  ) : mentorTip ? (
+                    <div className="relative p-4 rounded-xl bg-slate-50 border border-slate-100 italic text-xs leading-relaxed text-slate-800">
+                      <span className="absolute -top-3 -left-1 text-4xl text-primary/30 font-serif font-black pointer-events-none select-none">
+                        “
+                      </span>
+                      <div className="relative z-10 pl-2">
+                        <ReactMarkdown>{mentorTip}</ReactMarkdown>
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-1.5 not-italic text-[10px] text-muted-foreground font-semibold">
+                        <span>— DokterUsaha AI</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">
+                      Pesan mentor tidak tersedia.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* 2. Riwayat Rekam Medis (dengan Filter) */}
             <Card
               id="history"
               className="rounded-[24px] border-border/50 scroll-mt-20 overflow-hidden"
             >
-              <CardHeader className="pb-3 p-4 sm:p-5">
+              <CardHeader className="pb-3 p-4 sm:p-5 sm:pb-0">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground uppercase tracking-wider">
@@ -596,7 +750,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 sm:p-5 pt-0">
+              <CardContent className="p-4 sm:p-5 pt-0 sm:pt-2">
                 {filteredItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 px-4 text-center rounded-[24px] border border-dashed border-border/60 bg-muted/10">
                     <ClipboardList className="size-8 text-muted-foreground/60 mb-2" />
@@ -744,6 +898,73 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Posisi Usaha Anda (Benchmark) */}
+            {latestItem && benchmark && (
+              <Card className="rounded-[24px] border-border/50 shadow-sm bg-card overflow-hidden">
+                <CardHeader className="pb-2 p-4 sm:p-5">
+                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    Posisi Usaha Anda (Benchmark UMKM)
+                  </CardTitle>
+                  <CardDescription className="text-[10px]">
+                    Bandingkan kesehatan bisnis Anda dengan rata-rata UMKM
+                    sejenis
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-5 pt-0">
+                  <div className="flex flex-col gap-4 text-left">
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground font-semibold">
+                          Skor Anda
+                        </span>
+                        <span className="text-2xl font-black text-[#002d54]">
+                          {benchmark.userScore}
+                        </span>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground font-semibold">
+                          Rata-rata UMKM Serupa
+                        </span>
+                        <span className="text-2xl font-black text-slate-500">
+                          {benchmark.averageScore}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-muted/20 text-xs">
+                      <span className="text-muted-foreground font-medium">
+                        Status Posisi:
+                      </span>
+                      <span
+                        className={cn(
+                          "font-bold uppercase text-[10px] px-2 py-0.5 rounded-full border",
+                          benchmark.position === "di atas"
+                            ? "bg-success/20 text-success-foreground border-success-border/15"
+                            : benchmark.position === "di bawah"
+                              ? "bg-destructive/20 text-destructive border-destructive-border/15"
+                              : "bg-muted/40 text-muted-foreground border-slate-300",
+                        )}
+                      >
+                        {benchmark.position === "di atas"
+                          ? "Di Atas Rata-rata"
+                          : benchmark.position === "di bawah"
+                            ? "Di Bawah Rata-rata"
+                            : "Seimbang"}
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      Dianalisis berdasarkan sampel data dari{" "}
+                      <span className="font-bold text-foreground">
+                        {benchmark.totalSamples}
+                      </span>{" "}
+                      usaha sejenis.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 4. Chart (jika tersedia) */}
             {items.length >= 2 ? (
@@ -915,7 +1136,7 @@ export default function DashboardPage() {
             </Card>
 
             {/* 6. Footer (disclaimer) */}
-            <div className="py-4 text-center">
+            <div className="py-2 text-center">
               <p className="text-[10px] text-muted-foreground/80 font-medium">
                 Data rekam medis tersimpan aman di cloud dan local cache.
               </p>
@@ -936,7 +1157,8 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Hapus Rekam Medis?</DialogTitle>
             <DialogDescription>
-              Diagnosis ini akan dihapus secara permanen dan tidak dapat dipulihkan kembali.
+              Diagnosis ini akan dihapus secara permanen dan tidak dapat
+              dipulihkan kembali.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
